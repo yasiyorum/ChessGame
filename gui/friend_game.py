@@ -166,6 +166,28 @@ class FriendGame(GameScreen):
             # 3 saniye sonra ipucunu kaldır
             self.after(3000, self.chess_board.clear_hint)
     
+    def _on_undo_click(self):
+        """Hamle geri al - Arkadaşla oynarken 1 hamle geri al"""
+        if not self.game_active:
+            return
+        
+        if not self.engine.move_history:
+            return
+        
+        # Son hamleyi geri al
+        self.engine.undo_move()
+        self.move_list.remove_last_move()
+        
+        # Tahtayı güncelle
+        self.chess_board.set_board(self.engine.board)
+        if self.engine.move_history:
+            self.chess_board.set_last_move(self.engine.move_history[-1])
+        else:
+            self.chess_board.set_last_move(None)
+        
+        # Sıra göstergesini güncelle
+        self._update_turn_display()
+    
     def _on_resign_click(self):
         """Terk et"""
         if not self.game_active:

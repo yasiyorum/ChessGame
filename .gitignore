@@ -26,7 +26,6 @@ wheels/
 
 # PyInstaller
 *.manifest
-*.spec
 
 # Installer logs
 pip-log.txt
@@ -63,6 +62,11 @@ Thumbs.db
 
 # Stockfish binary (too large for git, users should download separately)
 stockfish/*.exe
+
+# Build outputs
+*.exe
+logo.ico
+create_ico.py
 
 # Logs
 *.log

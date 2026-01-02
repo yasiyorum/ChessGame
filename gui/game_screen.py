@@ -92,21 +92,44 @@ class GameScreen(ctk.CTkFrame):
     
     def _setup_board_panel(self, parent):
         """Tahta paneli"""
-        board_frame = ctk.CTkFrame(parent, fg_color=THEME["bg_secondary"], corner_radius=15)
-        board_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
+        self.board_frame = ctk.CTkFrame(parent, fg_color=THEME["bg_secondary"], corner_radius=15)
+        self.board_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
         
         # Tahta container (ortalama için)
-        board_container = ctk.CTkFrame(board_frame, fg_color="transparent")
-        board_container.pack(expand=True, pady=20)
+        self.board_container = ctk.CTkFrame(self.board_frame, fg_color="transparent")
+        self.board_container.pack(fill="both", expand=True, pady=20, padx=20)
         
-        # Satranç tahtası
+        # Satranç tahtası - başlangıç boyutu
         self.chess_board = ChessBoard(
-            board_container,
+            self.board_container,
             size=480,
             on_move=self._on_player_move,
             on_promotion_needed=self._on_promotion_needed
         )
-        self.chess_board.pack()
+        self.chess_board.place(relx=0.5, rely=0.5, anchor="center")
+        
+        # Pencere boyutu değiştiğinde tahtayı yeniden boyutlandır
+        self.board_container.bind("<Configure>", self._on_board_container_resize)
+    
+    def _on_board_container_resize(self, event):
+        """Tahta container'ı yeniden boyutlandırıldığında"""
+        # Kare boyutu hesapla (min width/height)
+        available_size = min(event.width, event.height) - 40  # Padding için -40
+        
+        # Minimum boyut kontrolü
+        if available_size < 320:
+            available_size = 320
+        
+        # 8'e bölünebilir olmalı
+        new_size = (available_size // 8) * 8
+        
+        # Sadece önemli değişikliklerde güncelle
+        if abs(new_size - self.chess_board.size) > 16:
+            self.chess_board.size = new_size
+            self.chess_board.square_size = new_size // 8
+            self.chess_board.piece_font_size = int(self.chess_board.square_size * 0.8)
+            self.chess_board.configure(width=new_size, height=new_size)
+            self.chess_board.draw_board()
     
     def _setup_info_panel(self, parent):
         """Bilgi paneli"""
@@ -172,6 +195,18 @@ class GameScreen(ctk.CTkFrame):
         )
         self.resign_btn.pack(side="left", padx=5, pady=10)
         
+        # Hamle geri al butonu
+        self.undo_btn = ctk.CTkButton(
+            footer,
+            text="↩ Geri Al",
+            font=ctk.CTkFont(size=13),
+            fg_color=THEME["button_bg"],
+            hover_color=THEME["button_hover"],
+            command=self._on_undo_click,
+            width=100
+        )
+        self.undo_btn.pack(side="left", padx=5, pady=10)
+        
         # Hamleleri kopyala butonu
         self.copy_btn = ctk.CTkButton(
             footer,
@@ -208,6 +243,10 @@ class GameScreen(ctk.CTkFrame):
     
     def _on_resign_click(self):
         """Terk et butonu tıklandı - override edilecek"""
+        pass
+    
+    def _on_undo_click(self):
+        """Hamle geri al butonu tıklandı - override edilecek"""
         pass
     
     def _on_copy_click(self):

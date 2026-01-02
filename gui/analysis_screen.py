@@ -94,17 +94,20 @@ class AnalysisScreen(ctk.CTkFrame):
         left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
         
         # Tahta container
-        board_container = ctk.CTkFrame(left_frame, fg_color="transparent")
-        board_container.pack(expand=True, pady=20)
+        self.board_container = ctk.CTkFrame(left_frame, fg_color="transparent")
+        self.board_container.pack(fill="both", expand=True, pady=20, padx=20)
         
         # Satranç tahtası
         self.chess_board = ChessBoard(
-            board_container,
+            self.board_container,
             size=450,
             on_move=None  # Analiz modunda interaktif değil
         )
         self.chess_board.set_interactive(False)
-        self.chess_board.pack()
+        self.chess_board.place(relx=0.5, rely=0.5, anchor="center")
+        
+        # Pencere boyutu değiştiğinde tahtayı yeniden boyutlandır
+        self.board_container.bind("<Configure>", self._on_board_container_resize)
         
         # Navigasyon butonları
         nav_frame = ctk.CTkFrame(left_frame, fg_color="transparent")
@@ -140,6 +143,26 @@ class AnalysisScreen(ctk.CTkFrame):
             text_color=THEME["text_primary"]
         )
         self.eval_label.pack()
+    
+    def _on_board_container_resize(self, event):
+        """Tahta container'ı yeniden boyutlandırıldığında"""
+        # Kare boyutu hesapla (min width/height)
+        available_size = min(event.width, event.height) - 40
+        
+        # Minimum boyut kontrolü
+        if available_size < 320:
+            available_size = 320
+        
+        # 8'e bölünebilir olmalı
+        new_size = (available_size // 8) * 8
+        
+        # Sadece önemli değişikliklerde güncelle
+        if abs(new_size - self.chess_board.size) > 16:
+            self.chess_board.size = new_size
+            self.chess_board.square_size = new_size // 8
+            self.chess_board.piece_font_size = int(self.chess_board.square_size * 0.8)
+            self.chess_board.configure(width=new_size, height=new_size)
+            self.chess_board.draw_board()
     
     def _setup_right_panel(self, parent):
         """Sağ panel (PGN + analiz sonuçları)"""

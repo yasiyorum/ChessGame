@@ -2,6 +2,19 @@
 Satranç Uygulaması Konfigürasyon Dosyası
 """
 import os
+import sys
+
+# PyInstaller ile paketlendiğinde base path değişir
+def get_base_path():
+    """Uygulama base path'ini döndür (PyInstaller uyumlu)"""
+    if getattr(sys, 'frozen', False):
+        # PyInstaller ile paketlenmiş
+        return sys._MEIPASS
+    else:
+        # Normal Python çalıştırma
+        return os.path.dirname(__file__)
+
+BASE_PATH = get_base_path()
 
 # Uygulama Ayarları
 APP_NAME = "Satranç"
@@ -12,7 +25,7 @@ MIN_WINDOW_HEIGHT = 700
 
 # Stockfish Ayarları
 STOCKFISH_PATH = os.path.join(
-    os.path.dirname(__file__), 
+    BASE_PATH, 
     "stockfish", 
     "stockfish-windows-x86-64-avx2.exe"
 )

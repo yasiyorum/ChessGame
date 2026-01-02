@@ -34,8 +34,16 @@ class BotGame(GameScreen):
         self.increment_seconds = 0
         self.unlimited = False
         
+        # Stockfish'i arka planda önceden başlat (donmayı önlemek için)
+        import threading
+        threading.Thread(target=self._preload_stockfish, daemon=True).start()
+        
         # Ayarlar diyaloğunu göster
         self.after(100, self._show_settings)
+    
+    def _preload_stockfish(self):
+        """Stockfish'i arka planda başlat"""
+        self.stockfish.start()
     
     def _show_settings(self):
         """Ayarlar diyaloğunu göster"""
@@ -53,9 +61,8 @@ class BotGame(GameScreen):
         self.increment_seconds = settings["increment_seconds"]
         self.unlimited = settings["unlimited"]
         
-        # Stockfish ayarları
+        # Stockfish ELO ayarı (zaten arka planda başlatılmış)
         self.stockfish.set_elo(self.bot_elo)
-        self.stockfish.start()
         
         # Motor sıfırla
         self.engine.reset()
@@ -200,6 +207,38 @@ class BotGame(GameScreen):
             
             # 3 saniye sonra ipucunu kaldır
             self.after(3000, self.chess_board.clear_hint)
+    
+    def _on_undo_click(self):
+        """Hamle geri al - Botla oynarken 2 hamle geri al (kendi ve botun hamlesi)"""
+        if not self.game_active:
+            return
+        
+        # En az 2 hamle olmalı (bizim ve botun hamlesi)
+        if len(self.engine.move_history) < 2:
+            if len(self.engine.move_history) == 1:
+                # Sadece 1 hamle varsa (ilk hamle) onu geri al
+                self.engine.undo_move()
+                self.move_list.remove_last_move()
+            return
+        
+        # Botun hamlesini geri al
+        self.engine.undo_move()
+        self.move_list.remove_last_move()
+        
+        # Kendi hamlemizi geri al
+        self.engine.undo_move()
+        self.move_list.remove_last_move()
+        
+        # Tahtayı güncelle
+        self.chess_board.set_board(self.engine.board)
+        if self.engine.move_history:
+            self.chess_board.set_last_move(self.engine.move_history[-1])
+        else:
+            self.chess_board.set_last_move(None)
+        
+        # Sıra bizde olmalı
+        self.chess_board.set_interactive(True)
+        self.set_status(f"ELO: {self.bot_elo}")
     
     def _on_resign_click(self):
         """Terk et"""

@@ -5,6 +5,7 @@ Stockfish motoru ile iletişim ve performans optimizasyonu
 import chess
 import chess.engine
 import threading
+import subprocess
 from concurrent.futures import ThreadPoolExecutor, Future
 from typing import Optional, Tuple, List, Dict, Callable
 import sys
@@ -32,19 +33,32 @@ class StockfishManager:
         self.skill_level = 10
         self.think_time = 200  # ms
         self.is_analyzing = False
+        self._engine_started = False
         
     def start(self) -> bool:
-        """Stockfish motorunu başlat"""
+        """Stockfish motorunu başlat (CMD penceresi olmadan)"""
         try:
             with self._lock:
                 if self.engine is None:
-                    self.engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
+                    # Windows'ta CMD penceresi göstermemek için
+                    popen_args = {}
+                    if sys.platform == "win32":
+                        # CREATE_NO_WINDOW flag'i
+                        popen_args["creationflags"] = subprocess.CREATE_NO_WINDOW
+                    
+                    # Stockfish'i başlat
+                    self.engine = chess.engine.SimpleEngine.popen_uci(
+                        STOCKFISH_PATH,
+                        **popen_args
+                    )
+                    
                     # Performans optimizasyonu
                     self.engine.configure({
                         "Threads": STOCKFISH_THREADS,
                         "Hash": STOCKFISH_HASH,
                         "Skill Level": self.skill_level
                     })
+                    self._engine_started = True
                 return True
         except Exception as e:
             print(f"Stockfish başlatma hatası: {e}")

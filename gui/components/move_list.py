@@ -66,6 +66,12 @@ class MoveList(ctk.CTkScrollableFrame):
         for widget in self.moves_frame.winfo_children():
             widget.destroy()
     
+    def remove_last_move(self):
+        """Son hamleyi listeden kaldır"""
+        if self.moves:
+            self.moves.pop()
+            self._render_moves()
+    
     def _render_moves(self):
         """Hamleleri render et"""
         # Mevcut widget'ları temizle
