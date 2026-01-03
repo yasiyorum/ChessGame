@@ -126,9 +126,10 @@ class GameScreen(ctk.CTkFrame):
         # Sadece önemli değişikliklerde güncelle
         if abs(new_size - self.chess_board.size) > 16:
             self.chess_board.size = new_size
+            self.chess_board.total_size = new_size + self.chess_board.COORD_MARGIN
             self.chess_board.square_size = new_size // 8
             self.chess_board.piece_font_size = int(self.chess_board.square_size * 0.8)
-            self.chess_board.configure(width=new_size, height=new_size)
+            self.chess_board.configure(width=self.chess_board.total_size, height=self.chess_board.total_size)
             self.chess_board.draw_board()
     
     def _setup_info_panel(self, parent):

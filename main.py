@@ -9,7 +9,7 @@ import os
 # Path ayarları
 sys.path.insert(0, os.path.dirname(__file__))
 
-from config import APP_NAME, WINDOW_WIDTH, WINDOW_HEIGHT, MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT, THEME
+from config import APP_NAME, APP_VERSION, WINDOW_WIDTH, WINDOW_HEIGHT, MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT, THEME
 from gui.main_menu import MainMenu
 from gui.bot_game import BotGame
 from gui.friend_game import FriendGame
@@ -23,7 +23,7 @@ class ChessApp(ctk.CTk):
         super().__init__()
         
         # Pencere ayarları
-        self.title(APP_NAME)
+        self.title(f"{APP_NAME} v{APP_VERSION}")
         self.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         self.minsize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
         

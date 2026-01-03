@@ -19,13 +19,19 @@ from config import (
 class ChessBoard(ctk.CTkCanvas):
     """Interaktif satranç tahtası"""
     
+    # Koordinat etiketi için kenar boşluğu
+    COORD_MARGIN = 25
+    
     def __init__(self, parent, size: int = 480, flipped: bool = False,
                  on_move: Optional[Callable] = None,
                  on_promotion_needed: Optional[Callable] = None,
                  **kwargs):
-        super().__init__(parent, width=size, height=size, 
-                        highlightthickness=0, **kwargs)
+        # Koordinatlar için ekstra alan ekle
+        total_size = size + self.COORD_MARGIN
+        super().__init__(parent, width=total_size, height=total_size, 
+                        highlightthickness=0, bg="#312E2B", **kwargs)
         
+        self.total_size = total_size
         self.size = size
         self.square_size = size // 8
         self.flipped = flipped
@@ -52,12 +58,14 @@ class ChessBoard(ctk.CTkCanvas):
     
     def _on_resize(self, event):
         """Yeniden boyutlandırma"""
-        new_size = min(event.width, event.height)
+        new_total_size = min(event.width, event.height)
+        new_size = new_total_size - self.COORD_MARGIN
         if new_size != self.size and new_size > 100:
+            self.total_size = new_total_size
             self.size = new_size
             self.square_size = new_size // 8
             self.piece_font_size = int(self.square_size * 0.8)
-            self.configure(width=new_size, height=new_size)
+            self.configure(width=new_total_size, height=new_total_size)
             self.draw_board()
     
     def set_board(self, board: chess.Board):
@@ -134,7 +142,8 @@ class ChessBoard(ctk.CTkCanvas):
             display_row = 7 - row
             display_col = col
         
-        x1 = display_col * self.square_size
+        # Koordinat margin'i ekle (sol tarafta 1-8, altta a-h için)
+        x1 = self.COORD_MARGIN + display_col * self.square_size
         y1 = display_row * self.square_size
         x2 = x1 + self.square_size
         y2 = y1 + self.square_size
@@ -217,38 +226,43 @@ class ChessBoard(ctk.CTkCanvas):
         )
     
     def _draw_labels(self):
-        """Sütun ve satır etiketleri"""
-        font_size = int(self.square_size * 0.2)
+        """Koordinat etiketlerini tahtanın dışına çiz"""
+        font_size = max(10, int(self.COORD_MARGIN * 0.55))
+        coord_color = "#B0B0B0"  # Açık gri
         
         for i in range(8):
-            # Sütun etiketleri (a-h)
-            col = 7 - i if self.flipped else i
-            x = i * self.square_size + self.square_size - 5
-            y = self.size - 5
-            is_light = (7 + i) % 2 == 1
-            color = BOARD_DARK_COLOR if is_light else BOARD_LIGHT_COLOR
+            # Sol taraf: Satır numaraları (1-8)
+            if self.flipped:
+                rank = i + 1  # 1'den 8'e (aşağıdan yukarı)
+            else:
+                rank = 8 - i  # 8'den 1'e (yukarıdan aşağı)
+            
+            x = self.COORD_MARGIN // 2
+            y = i * self.square_size + self.square_size // 2
             
             self.create_text(
                 x, y,
-                text=chr(ord('a') + col),
+                text=str(rank),
                 font=("Arial", font_size, "bold"),
-                fill=color,
-                anchor="se"
+                fill=coord_color,
+                anchor="center"
             )
             
-            # Satır etiketleri (1-8)
-            row = i if self.flipped else 7 - i
-            x = 5
-            y = i * self.square_size + 5
-            is_light = (i) % 2 == 1
-            color = BOARD_DARK_COLOR if is_light else BOARD_LIGHT_COLOR
+            # Alt taraf: Sütun harfleri (a-h)
+            if self.flipped:
+                file_char = chr(ord('h') - i)  # h'den a'ya
+            else:
+                file_char = chr(ord('a') + i)  # a'dan h'ye
+            
+            x = self.COORD_MARGIN + i * self.square_size + self.square_size // 2
+            y = 8 * self.square_size + self.COORD_MARGIN // 2
             
             self.create_text(
                 x, y,
-                text=str(row + 1),
+                text=file_char,
                 font=("Arial", font_size, "bold"),
-                fill=color,
-                anchor="nw"
+                fill=coord_color,
+                anchor="center"
             )
     
     def _draw_piece(self, square: chess.Square, piece: chess.Piece):
@@ -264,7 +278,7 @@ class ChessBoard(ctk.CTkCanvas):
             display_row = 7 - row
             display_col = col
         
-        x = display_col * self.square_size + self.square_size // 2
+        x = self.COORD_MARGIN + display_col * self.square_size + self.square_size // 2
         y = display_row * self.square_size + self.square_size // 2
         
         # Unicode sembolü
@@ -303,14 +317,14 @@ class ChessBoard(ctk.CTkCanvas):
         to_row = chess.square_rank(to_sq)
         
         if self.flipped:
-            from_x = (7 - from_col) * self.square_size + self.square_size // 2
+            from_x = self.COORD_MARGIN + (7 - from_col) * self.square_size + self.square_size // 2
             from_y = from_row * self.square_size + self.square_size // 2
-            to_x = (7 - to_col) * self.square_size + self.square_size // 2
+            to_x = self.COORD_MARGIN + (7 - to_col) * self.square_size + self.square_size // 2
             to_y = to_row * self.square_size + self.square_size // 2
         else:
-            from_x = from_col * self.square_size + self.square_size // 2
+            from_x = self.COORD_MARGIN + from_col * self.square_size + self.square_size // 2
             from_y = (7 - from_row) * self.square_size + self.square_size // 2
-            to_x = to_col * self.square_size + self.square_size // 2
+            to_x = self.COORD_MARGIN + to_col * self.square_size + self.square_size // 2
             to_y = (7 - to_row) * self.square_size + self.square_size // 2
         
         # Ok çiz
@@ -334,9 +348,23 @@ class ChessBoard(ctk.CTkCanvas):
         if not self.interactive:
             return
         
+        # Koordinat margin'ini çıkar
+        adjusted_x = event.x - self.COORD_MARGIN
+        adjusted_y = event.y
+        
+        # Tahta dışı tıklamaları yok say
+        if adjusted_x < 0 or adjusted_y < 0:
+            return
+        if adjusted_x >= self.size or adjusted_y >= self.size:
+            return
+        
         # Tıklanan kareyi bul
-        col = event.x // self.square_size
-        row = event.y // self.square_size
+        col = adjusted_x // self.square_size
+        row = adjusted_y // self.square_size
+        
+        # Sınır kontrolü
+        if col < 0 or col > 7 or row < 0 or row > 7:
+            return
         
         if self.flipped:
             square = chess.square(7 - col, row)

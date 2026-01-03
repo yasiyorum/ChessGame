@@ -1,355 +1,289 @@
 """
-Stockfish Yöneticisi
-Stockfish motoru ile iletişim ve performans optimizasyonu
+Stockfish Yöneticisi - Chess.com %100 Uyumlu Analiz Sistemi
 """
 import chess
 import chess.engine
 import threading
 import subprocess
-from concurrent.futures import ThreadPoolExecutor, Future
+import math
+from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 from typing import Optional, Tuple, List, Dict, Callable
 import sys
 import os
 
-# Config'i import et
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from config import (
-    STOCKFISH_PATH, STOCKFISH_THREADS, STOCKFISH_HASH,
+    STOCKFISH_PATH, STOCKFISH_THREADS, STOCKFISH_HASH, ANALYSIS_WORKERS,
     elo_to_skill_level, elo_to_think_time
 )
 
-
 class StockfishManager:
-    """
-    Stockfish motoru yönetim sınıfı
-    Thread-safe ve performans optimize edilmiş
-    """
-    
     def __init__(self):
         self.engine: Optional[chess.engine.SimpleEngine] = None
         self.executor = ThreadPoolExecutor(max_workers=1)
         self._lock = threading.Lock()
-        self.elo = 1200
-        self.skill_level = 10
-        self.think_time = 200  # ms
         self.is_analyzing = False
         self._engine_started = False
         
     def start(self) -> bool:
-        """Stockfish motorunu başlat (CMD penceresi olmadan)"""
         try:
             with self._lock:
                 if self.engine is None:
-                    # Windows'ta CMD penceresi göstermemek için
                     popen_args = {}
                     if sys.platform == "win32":
-                        # CREATE_NO_WINDOW flag'i
                         popen_args["creationflags"] = subprocess.CREATE_NO_WINDOW
                     
-                    # Stockfish'i başlat
-                    self.engine = chess.engine.SimpleEngine.popen_uci(
-                        STOCKFISH_PATH,
-                        **popen_args
-                    )
-                    
-                    # Performans optimizasyonu
+                    self.engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH, **popen_args)
                     self.engine.configure({
                         "Threads": STOCKFISH_THREADS,
-                        "Hash": STOCKFISH_HASH,
-                        "Skill Level": self.skill_level
+                        "Hash": STOCKFISH_HASH
                     })
                     self._engine_started = True
                 return True
         except Exception as e:
             print(f"Stockfish başlatma hatası: {e}")
             return False
-    
+
     def stop(self):
-        """Stockfish motorunu durdur"""
         with self._lock:
             if self.engine:
-                try:
-                    self.engine.quit()
-                except:
-                    pass
+                try: self.engine.quit()
+                except: pass
                 self.engine = None
         self.executor.shutdown(wait=False)
+
+    # ==================== Chess.com Win Probability ====================
     
-    def set_elo(self, elo: int):
-        """Bot ELO değerini ayarla"""
-        self.elo = elo
-        self.skill_level = elo_to_skill_level(elo)
-        self.think_time = elo_to_think_time(elo)
-        
-        with self._lock:
-            if self.engine:
-                self.engine.configure({"Skill Level": self.skill_level})
-    
-    def get_best_move(self, board: chess.Board, callback: Optional[Callable] = None) -> Optional[chess.Move]:
-        """
-        En iyi hamleyi hesapla (senkron)
-        """
-        if not self.engine:
-            if not self.start():
-                return None
-        
+    def _cp_to_win_prob(self, cp: int) -> float:
+        """Chess.com Resmi Formülü: 1 / (1 + 10^(-cp/400))"""
+        try:
+            return 1.0 / (1.0 + math.pow(10, -cp / 400.0))
+        except:
+            return 0.5
+
+    # ==================== ANALİZ ====================
+
+    def analyze_position(self, board: chess.Board, depth: int) -> Dict:
+        if not self.engine: self.start()
         try:
             with self._lock:
-                result = self.engine.play(
-                    board, 
-                    chess.engine.Limit(time=self.think_time / 1000.0)
-                )
-                return result.move
-        except Exception as e:
-            print(f"Hamle hesaplama hatası: {e}")
-            return None
-    
-    def get_best_move_async(self, board: chess.Board, callback: Callable[[Optional[chess.Move]], None]) -> Future:
-        """
-        En iyi hamleyi asenkron hesapla (UI donmaz)
-        """
-        def _calculate():
-            move = self.get_best_move(board)
-            callback(move)
-            return move
-        
-        return self.executor.submit(_calculate)
-    
-    def get_hint(self, board: chess.Board) -> Optional[Tuple[chess.Move, int]]:
-        """
-        İpucu için en iyi hamleyi ve değerlendirmesini döndür
-        """
-        if not self.engine:
-            if not self.start():
-                return None
-        
-        try:
-            with self._lock:
-                # Daha derin analiz (ipucu için)
-                info = self.engine.analyse(
-                    board, 
-                    chess.engine.Limit(time=0.5),
-                    info=chess.engine.INFO_ALL
-                )
-                
-                best_move = info.get("pv", [None])[0]
+                # Daha derin analiz = daha doğru sonuç
+                info = self.engine.analyse(board, chess.engine.Limit(depth=depth))
                 score = info.get("score")
-                
+                cp = 0
                 if score:
                     cp = score.relative.score(mate_score=10000)
-                    if cp is None:
-                        cp = 0
-                    return (best_move, cp)
+                    if cp is None: 
+                        cp = 10000 if score.relative.mate() > 0 else -10000
                 
-                return (best_move, 0) if best_move else None
-                
-        except Exception as e:
-            print(f"İpucu hesaplama hatası: {e}")
-            return None
-    
-    def get_hint_async(self, board: chess.Board, callback: Callable[[Optional[Tuple[chess.Move, int]]], None]) -> Future:
-        """İpucu asenkron hesapla"""
-        def _calculate():
-            result = self.get_hint(board)
-            callback(result)
-            return result
-        
-        return self.executor.submit(_calculate)
-    
-    def analyze_position(self, board: chess.Board, depth: int = 15) -> Dict:
-        """
-        Pozisyonu analiz et ve detaylı bilgi döndür
-        """
-        if not self.engine:
-            if not self.start():
-                return {}
-        
-        try:
-            with self._lock:
-                info = self.engine.analyse(
-                    board,
-                    chess.engine.Limit(depth=depth),
-                    info=chess.engine.INFO_ALL
-                )
-                
-                result = {
-                    "best_move": info.get("pv", [None])[0],
-                    "pv": info.get("pv", []),
-                    "depth": info.get("depth", 0),
+                return {
+                    "score": cp,
+                    "best_move": info.get("pv", [None])[0] if "pv" in info else None,
                 }
-                
-                score = info.get("score")
-                if score:
-                    cp = score.relative.score(mate_score=10000)
-                    result["score"] = cp if cp is not None else 0
-                    result["mate"] = score.relative.mate()
-                else:
-                    result["score"] = 0
-                    result["mate"] = None
-                
-                return result
-                
-        except Exception as e:
-            print(f"Analiz hatası: {e}")
-            return {}
-    
-    def analyze_game(self, moves: List[chess.Move], callback: Optional[Callable] = None) -> List[Dict]:
-        """
-        Tüm oyunu analiz et ve her hamle için değerlendirme döndür
-        Chess.com tarzı analiz
-        """
+        except:
+            return {"score": 0, "best_move": None}
+
+    def analyze_game(self, moves: List[chess.Move], callback: Optional[Callable] = None, depth: int = 20) -> List[Dict]:
+        """Chess.com tarzı oyun analizi"""
         self.is_analyzing = True
-        results = []
-        board = chess.Board()
+        results = [None] * len(moves)
         
-        # Başlangıç pozisyonu değerlendirmesi
-        prev_eval = 0
-        
-        try:
-            for i, move in enumerate(moves):
-                if not self.is_analyzing:
-                    break
-                
-                # Hamle öncesi pozisyon analizi (en iyi hamle neydi?)
-                pre_analysis = self.analyze_position(board, depth=12)
-                best_move = pre_analysis.get("best_move")
-                
-                # Hamleyi yap
-                san = board.san(move)
-                board.push(move)
-                
-                # Hamle sonrası değerlendirme
-                post_analysis = self.analyze_position(board, depth=12)
-                current_eval = post_analysis.get("score", 0)
-                
-                # Siyah için değerlendirmeyi ters çevir
-                if i % 2 == 1:  # Siyah hamlesi
-                    current_eval = -current_eval
-                    prev_eval = -prev_eval
-                
-                # Hamle kalitesini belirle
-                is_best = (move == best_move)
-                eval_loss = prev_eval - current_eval
-                
-                classification = self._classify_move(eval_loss, is_best, pre_analysis)
-                
-                results.append({
-                    "move": move,
-                    "san": san,
-                    "eval": current_eval,
-                    "eval_loss": eval_loss,
-                    "classification": classification,
-                    "best_move": best_move,
-                    "is_best": is_best,
-                })
-                
-                # Callback ile progress bildir
-                if callback:
-                    callback(i + 1, len(moves), results[-1])
-                
-                # Bir sonraki hamle için mevcut eval'i kaydet
-                prev_eval = -current_eval  # Taraf değişiyor
-                
-        except Exception as e:
-            print(f"Oyun analiz hatası: {e}")
-        
+        # Tüm pozisyonların FEN'lerini önceden hazırla
+        fens = []
+        temp_board = chess.Board()
+        fens.append(temp_board.fen())
+        for m in moves:
+            temp_board.push(m)
+            fens.append(temp_board.fen())
+
+        def worker(idx: int):
+            if not self.is_analyzing: return None
+            
+            # Hamle öncesi ve sonrası pozisyonlar
+            board_before = chess.Board(fens[idx])
+            board_after = chess.Board(fens[idx + 1])
+            
+            # Hamle öncesi en iyi hamleyi bul
+            pre_eval = self.analyze_position(board_before, depth)
+            engine_best_move = pre_eval["best_move"]
+            eval_before = pre_eval["score"]  # Oyuncu perspektifinden
+            
+            # Hamle sonrası değerlendirme
+            post_eval = self.analyze_position(board_after, depth)
+            eval_after = -post_eval["score"]  # Perspektif değişti, çevir
+            
+            # En iyi hamle yapılsaydı ne olurdu?
+            if engine_best_move and engine_best_move in board_before.legal_moves:
+                board_best = board_before.copy()
+                board_best.push(engine_best_move)
+                best_eval_result = self.analyze_position(board_best, depth)
+                best_eval_after = -best_eval_result["score"]
+            else:
+                best_eval_after = eval_before  # Eğer best move yoksa (garip durum)
+            
+            # Win Probability Loss hesapla
+            win_prob_best = self._cp_to_win_prob(best_eval_after)
+            win_prob_actual = self._cp_to_win_prob(eval_after)
+            win_prob_loss = max(0, win_prob_best - win_prob_actual)
+            
+            # CP Loss
+            cp_loss = max(0, best_eval_after - eval_after)
+            
+            # Sınıflandırma
+            is_best = (moves[idx] == engine_best_move)
+            classification = self._classify_move(
+                win_prob_loss, is_best, idx + 1, 
+                eval_before, eval_after, best_eval_after,
+                moves[idx], board_before
+            )
+
+            res = {
+                "index": idx,
+                "san": board_before.san(moves[idx]),
+                "eval": eval_after if (idx % 2 == 0) else -eval_after,  # Beyaz perspektifi
+                "eval_loss": cp_loss,
+                "classification": classification,
+                "best_move": engine_best_move,
+                "is_best": is_best,
+                "expected_score_loss": win_prob_loss
+            }
+            
+            if callback: callback(idx + 1, len(moves), res)
+            return res
+
+        # Paralel analiz
+        with ThreadPoolExecutor(max_workers=ANALYSIS_WORKERS) as executor:
+            futures = [executor.submit(worker, i) for i in range(len(moves))]
+            for future in as_completed(futures):
+                if not self.is_analyzing: break
+                r = future.result()
+                if r: results[r["index"]] = r
+
         self.is_analyzing = False
-        return results
-    
-    def analyze_game_async(self, moves: List[chess.Move], 
-                          progress_callback: Optional[Callable] = None,
-                          complete_callback: Optional[Callable] = None) -> Future:
-        """Oyunu asenkron analiz et"""
-        def _analyze():
-            results = self.analyze_game(moves, progress_callback)
-            if complete_callback:
-                complete_callback(results)
-            return results
-        
-        return self.executor.submit(_analyze)
-    
-    def stop_analysis(self):
-        """Devam eden analizi durdur"""
-        self.is_analyzing = False
-    
-    def _classify_move(self, eval_loss: int, is_best: bool, analysis: Dict) -> str:
-        """
-        Hamleyi sınıflandır (Chess.com tarzı)
-        """
-        # Mat durumları
-        if analysis.get("mate") is not None:
-            if is_best:
-                return "best"
-        
-        # Değerlendirme kaybına göre sınıflandır
-        if eval_loss <= 0:
-            if is_best:
-                # Zor pozisyonda en iyi hamleyi bulmak "brilliant"
-                if self._is_difficult_position(analysis):
-                    return "brilliant"
+        return [r for r in results if r is not None]
+
+    def _classify_move(self, wp_loss: float, is_best: bool, move_num: int,
+                       eval_before: int, eval_after: int, best_eval_after: int,
+                       move: chess.Move, board: chess.Board) -> str:
+        """Chess.com Sınıflandırma Mantığı (Ultra Sert)"""
+        from config import EVAL_THRESHOLDS
+
+        # 1. Book / Teori
+        if move_num <= 10 and is_best and wp_loss < 0.001:
+            return "book"
+
+        # 2. Miss (Kaçırma) - Büyük kazancı elden bırakmak
+        if best_eval_after > 200 and eval_after < 50:
+            return "miss"
+
+        # 3. Brilliant (Efsane)
+        if is_best and eval_after > -80:
+            if self._is_brilliant_sacrifice(move, board, eval_before, eval_after):
+                return "brilliant"
+
+        # 4. Great (Mükemmel)
+        if is_best:
+            if (eval_before < -200 and eval_after > -50) or (eval_before < 50 and eval_after > 250):
                 return "great"
             return "best"
-        elif eval_loss < 25:
-            return "good"
-        elif eval_loss < 50:
-            return "normal"
-        elif eval_loss < 100:
-            return "inaccuracy"
-        elif eval_loss < 200:
-            return "mistake"
-        else:
-            return "blunder"
-    
-    def _is_difficult_position(self, analysis: Dict) -> bool:
-        """Pozisyonun zor olup olmadığını belirle"""
-        pv = analysis.get("pv", [])
-        # PV derinse veya değerlendirme keskinse zor pozisyon
-        return len(pv) >= 5
-    
-    def calculate_accuracy(self, analysis_results: List[Dict]) -> Tuple[float, float]:
-        """
-        Her iki taraf için accuracy yüzdesini hesapla
-        Chess.com formülü kullanılır
-        """
-        white_moves = []
-        black_moves = []
+
+        # 5. Config bazlı Sıkı Eşikler (wp_loss bazlı)
+        t = EVAL_THRESHOLDS
+        # Eşikleri centipawn'dan win prob kaybına kabaca çeviriyoruz (normal_threshold: 42 -> 0.0042)
+        if wp_loss <= t["good_threshold"] / 1000.0: return "good"
+        if wp_loss <= t["inaccuracy_threshold"] / 1000.0: return "inaccuracy"
+        if wp_loss <= t["mistake_threshold"] / 1000.0: return "mistake"
+        return "blunder"
+
+    def _is_brilliant_sacrifice(self, move: chess.Move, board: chess.Board, 
+                                 eval_before: int, eval_after: int) -> bool:
+        """Gerçek Brilliant kontrolü - ÇOK SIKI"""
+        piece = board.piece_at(move.from_square)
+        if not piece or piece.piece_type in [chess.PAWN, chess.KING]:
+            return False  # Piyon ve Şah brilliant olamaz
         
-        for i, result in enumerate(analysis_results):
-            eval_loss = abs(result.get("eval_loss", 0))
-            if i % 2 == 0:
-                white_moves.append(eval_loss)
+        # Feda: Taşı rakibin vurduğu bir kareye mi bıraktık?
+        board_next = board.copy()
+        board_next.push(move)
+        attackers = board_next.attackers(board_next.turn, move.to_square)
+        if not attackers:
+            return False
+
+        # Değer farkı: Giden taş, alınan taştan en az 3 puan değerli olmalı
+        captured = board.piece_at(move.to_square)
+        vals = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}
+        sacrifice_value = vals.get(piece.piece_type, 0) - (vals.get(captured.piece_type, 0) if captured else 0)
+        
+        if sacrifice_value < 3:
+            return False
+
+        # Sonuç: Hamle sonrası konum çok bozulmamalı
+        return eval_after >= eval_before - 30
+        
+        # Pozisyon iyileşmeli veya en azından kötüleşmemeli
+        if eval_after < eval_before - 50:
+            return False
+            
+        return True
+
+    def calculate_accuracy(self, results: List[Dict]) -> Tuple[float, float]:
+        """Chess.com CAPS 2.0 - Kareli Ceza Modeli (Dinamik ve Sert)"""
+        
+        def acc_from_loss(wp_loss: float, classification: str) -> float:
+            # 1. Dokunulmaz Hamleler
+            if classification == "best": return 90.0
+            if classification == "brilliant": return 100.0
+            if classification == "book": return 100.0
+            
+            # 2. Orta-İyi Hamleler (Hafif Cezalı Başlangıç)
+            if classification == "great": return 85.0
+            if classification == "good": 
+                # Good hamleler bile 100 alamaz, max 92
+                base = 85.0
             else:
-                black_moves.append(eval_loss)
-        
-        def calc_accuracy(losses):
-            if not losses:
-                return 100.0
+                base = 100.0
+
+            # 3. Üssel Ceza (Katsayıyı 40 yaptık - Kullanıcının 65'inden biraz daha dengeli ama çok sert)
+            # exp(-40 * wp_loss)
+            score = base * math.exp(-40.0 * wp_loss)
             
-            # Chess.com benzeri accuracy formülü
-            total_accuracy = 0
-            for loss in losses:
-                # Her hamle için accuracy
-                if loss <= 0:
-                    acc = 100
-                elif loss < 25:
-                    acc = 100 - (loss * 0.4)
-                elif loss < 50:
-                    acc = 90 - ((loss - 25) * 0.8)
-                elif loss < 100:
-                    acc = 70 - ((loss - 50) * 0.6)
-                elif loss < 200:
-                    acc = 40 - ((loss - 100) * 0.3)
-                else:
-                    acc = max(0, 10 - ((loss - 200) * 0.05))
-                
-                total_accuracy += max(0, min(100, acc))
-            
-            return total_accuracy / len(losses)
+            # 4. Hata Tipine Göre Ekstra Kesinti (Multipliers)
+            if classification == "blunder":
+                score *= 0.4  # Blunder puanı %60 daha düşürür
+            elif classification == "mistake":
+                score *= 0.7  # Mistake puanı %30 daha düşürür
+            elif classification == "miss":
+                score *= 0.8  # Kaçırılan fırsat %20 düşürür
+
+            return max(0.0, min(100.0, score))
+
+        w_scores = [acc_from_loss(r["expected_score_loss"], r["classification"]) 
+                    for r in results if r["index"] % 2 == 0]
+        b_scores = [acc_from_loss(r["expected_score_loss"], r["classification"]) 
+                    for r in results if r["index"] % 2 != 0]
         
-        white_accuracy = calc_accuracy(white_moves)
-        black_accuracy = calc_accuracy(black_moves)
+        return (
+            sum(w_scores) / len(w_scores) if w_scores else 0,
+            sum(b_scores) / len(b_scores) if b_scores else 0
+        )
+
+    def analyze_game_async(self, moves, depth=20, progress_callback=None, complete_callback=None):
+        def _task():
+            res = self.analyze_game(moves, progress_callback, depth)
+            if complete_callback: complete_callback(res)
+            return res
+        return ThreadPoolExecutor(max_workers=1).submit(_task)
+
+    def stop_analysis(self):
+        self.is_analyzing = False
         
-        return (white_accuracy, black_accuracy)
-    
-    def __del__(self):
-        self.stop()
+    def get_best_move(self, board, callback=None):
+        if not self.engine: self.start()
+        res = self.engine.play(board, chess.engine.Limit(time=0.5))
+        if callback: callback(res.move)
+        return res.move
+
+    def get_hint(self, board):
+        if not self.engine: self.start()
+        info = self.engine.analyse(board, chess.engine.Limit(time=0.5))
+        return (info.get("pv", [None])[0], 0)

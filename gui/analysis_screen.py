@@ -159,9 +159,10 @@ class AnalysisScreen(ctk.CTkFrame):
         # Sadece önemli değişikliklerde güncelle
         if abs(new_size - self.chess_board.size) > 16:
             self.chess_board.size = new_size
+            self.chess_board.total_size = new_size + self.chess_board.COORD_MARGIN
             self.chess_board.square_size = new_size // 8
             self.chess_board.piece_font_size = int(self.chess_board.square_size * 0.8)
-            self.chess_board.configure(width=new_size, height=new_size)
+            self.chess_board.configure(width=self.chess_board.total_size, height=self.chess_board.total_size)
             self.chess_board.draw_board()
     
     def _setup_right_panel(self, parent):
@@ -190,6 +191,34 @@ class AnalysisScreen(ctk.CTkFrame):
             text_color=THEME["text_primary"]
         )
         self.pgn_input.pack(fill="x", padx=10, pady=(0, 10))
+        
+        # Depth ayarı
+        depth_frame = ctk.CTkFrame(input_frame, fg_color="transparent")
+        depth_frame.pack(fill="x", padx=10, pady=(0, 10))
+        
+        ctk.CTkLabel(
+            depth_frame,
+            text="Analiz Derinliği:",
+            font=ctk.CTkFont(size=12),
+            text_color=THEME["text_secondary"]
+        ).pack(side="left")
+        
+        self.depth_var = ctk.StringVar(value="18")
+        self.depth_entry = ctk.CTkEntry(
+            depth_frame,
+            textvariable=self.depth_var,
+            width=50,
+            font=ctk.CTkFont(size=12),
+            fg_color=THEME["bg_primary"]
+        )
+        self.depth_entry.pack(side="left", padx=10)
+        
+        ctk.CTkLabel(
+            depth_frame,
+            text="(15-25 önerilir)",
+            font=ctk.CTkFont(size=11),
+            text_color=THEME["text_secondary"]
+        ).pack(side="left")
         
         # Butonlar
         btn_frame = ctk.CTkFrame(input_frame, fg_color="transparent")
@@ -308,6 +337,13 @@ class AnalysisScreen(ctk.CTkFrame):
             self.status_label.configure(text="PGN veya hamle metni girin!")
             return
         
+        # Depth ayarını oku
+        try:
+            depth = int(self.depth_var.get())
+            depth = max(10, min(30, depth))  # 10-30 arası sınırla
+        except:
+            depth = 18
+        
         # PGN yükle
         if not self.engine.load_pgn(pgn_text):
             self.status_label.configure(text="Geçersiz PGN formatı!")
@@ -330,9 +366,10 @@ class AnalysisScreen(ctk.CTkFrame):
         # Stockfish başlat
         self.stockfish.start()
         
-        # Analizi başlat (async)
+        # Analizi başlat (async) - depth parametresi ile
         self.stockfish.analyze_game_async(
             self.engine.move_history,
+            depth=depth,
             progress_callback=self._on_progress,
             complete_callback=self._on_complete
         )

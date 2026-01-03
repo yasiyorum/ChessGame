@@ -18,6 +18,7 @@ BASE_PATH = get_base_path()
 
 # Uygulama Ayarları
 APP_NAME = "Satranç"
+APP_VERSION = "1.1"
 WINDOW_WIDTH = 1200
 WINDOW_HEIGHT = 800
 MIN_WINDOW_WIDTH = 1000
@@ -31,8 +32,9 @@ STOCKFISH_PATH = os.path.join(
 )
 
 # Performans Optimizasyonu
-STOCKFISH_THREADS = 1  # Tek çekirdek kullanarak CPU yükünü azalt
+STOCKFISH_THREADS = 4  # Tek çekirdek kullanarak CPU yükünü azalt
 STOCKFISH_HASH = 64    # MB cinsinden hash tablosu boyutu
+ANALYSIS_WORKERS = 4  # Analiz için paralel iş parçacığı sayısı
 
 # ELO Ayarları
 MIN_ELO = 100
@@ -66,8 +68,8 @@ def elo_to_think_time(elo: int) -> int:
 # Zaman Kontrolü Varsayılanları
 DEFAULT_TIME_MINUTES = 5
 DEFAULT_INCREMENT_SECONDS = 0
-TIME_OPTIONS = [1, 2, 3, 5, 10, 15, 30, 60]  # Dakika cinsinden
-INCREMENT_OPTIONS = [0, 1, 2, 3, 5, 10]      # Saniye cinsinden
+TIME_OPTIONS = [1, 2, 3, 5, 10, 15, 30, 45, 60, 90, 120]  # Dakika cinsinden
+INCREMENT_OPTIONS = [0, 1, 2, 3, 5, 10, 15, 30, 45, 60, 90, 120]      # Saniye cinsinden
 
 # Tahta Renkleri
 BOARD_LIGHT_COLOR = "#EEEED2"
@@ -82,28 +84,28 @@ BOARD_CHECK_COLOR = "#E84545"
 MOVE_COLORS = {
     "brilliant": "#1BACA6",   # Camgöbeği - Efsane hamle
     "great": "#5C8BB0",       # Mavi - Harika hamle
-    "best": "#96BC4B",        # Yeşil - En iyi hamle
-    "good": "#96BC4B",        # Yeşil - İyi hamle
+    "best": "#8FB44E",        # Koyu yeşil - En iyi hamle
     "book": "#A88865",        # Kahverengi - Kitap hamlesi
-    "normal": "#D0D0D0",      # Gri - Normal hamle
-    "inaccuracy": "#F7C631",  # Sarı - Hatasız (küçük hata)
-    "mistake": "#FFA459",     # Turuncu - Hata
-    "blunder": "#CA3431",     # Kırmızı - Vahim hata
-    "miss": "#DBAC16",        # Altın - Kaçırılan fırsat
+    "good": "#FFFFFF",        # Beyaz - İyi hamle
+    "normal": "#B0B0B0",      # Açık gri - Normal hamle
+    "inaccuracy": "#F0D151",  # Sarı - Yanlışlık
+    "mistake": "#E6912C",     # Turuncu - Hata
+    "blunder": "#B33430",     # Kırmızı - Vahim Hata
+    "miss": "#FF3B3F",        # Parlak Kırmızı - Kaçırılan Fırsat
 }
 
 # Hamle Sembolleri (Chess.com Stili)
 MOVE_SYMBOLS = {
     "brilliant": "!!",
     "great": "!",
-    "best": "",
-    "good": "",
-    "book": "",
+    "best": "★",
+    "book": "📖",
+    "good": "✓",
     "normal": "",
     "inaccuracy": "?!",
     "mistake": "?",
     "blunder": "??",
-    "miss": "",
+    "miss": "X",
 }
 
 # Değerlendirme Eşikleri (centipawn cinsinden)
