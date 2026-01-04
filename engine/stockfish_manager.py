@@ -287,3 +287,54 @@ class StockfishManager:
         if not self.engine: self.start()
         info = self.engine.analyse(board, chess.engine.Limit(time=0.5))
         return (info.get("pv", [None])[0], 0)
+
+    def set_elo(self, elo: int):
+        """Botun gücünü ayarla"""
+        if not self.engine: self.start()
+        
+        # Skill Level (0-20)
+        skill = elo_to_skill_level(elo)
+        
+        options = {}
+        options["Skill Level"] = skill
+        
+        # UCI_Elo ayarını kontrol et
+        use_uci_elo = False
+        if "UCI_Elo" in self.engine.options:
+            uci_elo_option = self.engine.options["UCI_Elo"]
+            min_elo = uci_elo_option.min
+            
+            # Eğer istenen ELO, motorun desteklediği minimumdan büyükse UCI_Elo kullan
+            # Değilse sadece Skill Level kullan (bu sayede 100 ELO da mümkün olur)
+            if elo >= min_elo:
+                use_uci_elo = True
+                options["UCI_LimitStrength"] = True
+                options["UCI_Elo"] = elo
+            else:
+                # Düşük ELO modu: UCI_LimitStrength kapat, motoru Skill Level ile kısıtla
+                options["UCI_LimitStrength"] = False
+        
+        # UCI ayarlarını güncelle
+        try:
+            self.engine.configure(options)
+        except Exception as e:
+            print(f"ELO ayarlanırken hata (görmezden geliniyor): {e}")
+
+    def get_best_move_async(self, board, callback):
+        """Asenkron en iyi hamle (Bot oyunu için)"""
+        def _task():
+            # ELO'ya göre düşünme süresi
+            # Basitçe sabit bir süre veya ELO'ya bağlı min süre verebiliriz
+            # Şimdilik 0.5 - 2 saniye arası
+            move = self.get_best_move(board)
+            if callback: callback(move)
+        
+        threading.Thread(target=_task, daemon=True).start()
+
+    def get_hint_async(self, board, callback):
+        """Asenkron ipucu"""
+        def _task():
+            res = self.get_hint(board)
+            if callback: callback(res)
+        
+        threading.Thread(target=_task, daemon=True).start()

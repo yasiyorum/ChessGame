@@ -282,8 +282,9 @@ class GameEndDialog(ctk.CTkToplevel):
         self.on_menu = on_menu
         
         # Pencere ayarları
+        # Pencere ayarları
         self.title("Oyun Bitti")
-        self.geometry("400x350")
+        self.geometry("450x500")
         self.resizable(False, False)
         self.configure(fg_color=THEME["bg_primary"])
         
@@ -298,9 +299,9 @@ class GameEndDialog(ctk.CTkToplevel):
     
     def _center_window(self):
         self.update_idletasks()
-        x = (self.winfo_screenwidth() - 400) // 2
-        y = (self.winfo_screenheight() - 350) // 2
-        self.geometry(f"400x350+{x}+{y}")
+        x = (self.winfo_screenwidth() - 450) // 2
+        y = (self.winfo_screenheight() - 500) // 2
+        self.geometry(f"450x500+{x}+{y}")
     
     def _setup_ui(self, result: str, reason: str):
         """UI oluştur"""
@@ -310,14 +311,14 @@ class GameEndDialog(ctk.CTkToplevel):
         ctk.CTkLabel(
             self,
             text=icon,
-            font=ctk.CTkFont(size=64)
-        ).pack(pady=(30, 10))
+            font=ctk.CTkFont(size=72)
+        ).pack(pady=(40, 10))
         
         # Sonuç
         ctk.CTkLabel(
             self,
             text=result,
-            font=ctk.CTkFont(size=24, weight="bold"),
+            font=ctk.CTkFont(size=28, weight="bold"),
             text_color=THEME["text_primary"]
         ).pack(pady=5)
         
@@ -325,43 +326,45 @@ class GameEndDialog(ctk.CTkToplevel):
         ctk.CTkLabel(
             self,
             text=reason,
-            font=ctk.CTkFont(size=14),
+            font=ctk.CTkFont(size=16),
             text_color=THEME["text_secondary"]
-        ).pack(pady=5)
+        ).pack(pady=(0, 20))
         
         # Butonlar
         btn_frame = ctk.CTkFrame(self, fg_color="transparent")
-        btn_frame.pack(fill="x", padx=30, pady=30)
-        
-        ctk.CTkButton(
-            btn_frame,
-            text="📋 Hamleleri Kopyala",
-            font=ctk.CTkFont(size=13),
-            fg_color=THEME["button_bg"],
-            hover_color=THEME["button_hover"],
-            command=self._copy_pgn,
-            width=150
-        ).pack(fill="x", pady=5)
+        btn_frame.pack(fill="x", padx=40, pady=10)
         
         ctk.CTkButton(
             btn_frame,
             text="🔄 Yeni Oyun",
-            font=ctk.CTkFont(size=13),
+            font=ctk.CTkFont(size=16, weight="bold"),
+            height=50,
             fg_color=THEME["accent"],
             hover_color=THEME["accent_hover"],
-            command=self._new_game,
-            width=150
-        ).pack(fill="x", pady=5)
+            command=self._new_game
+        ).pack(fill="x", pady=10)
         
         ctk.CTkButton(
             btn_frame,
             text="🏠 Ana Menü",
-            font=ctk.CTkFont(size=13),
+            font=ctk.CTkFont(size=16, weight="bold"),
+            height=50,
             fg_color=THEME["button_bg"],
             hover_color=THEME["button_hover"],
-            command=self._go_menu,
-            width=150
-        ).pack(fill="x", pady=5)
+            command=self._go_menu
+        ).pack(fill="x", pady=10)
+        
+        # PGN Kopyala (text link gibi)
+        ctk.CTkButton(
+            self,
+            text="📋 PGN Kopyala",
+            font=ctk.CTkFont(size=14, underline=True),
+            fg_color="transparent",
+            text_color=THEME["text_secondary"],
+            hover_color=THEME["bg_secondary"],
+            command=self._copy_pgn,
+            height=30
+        ).pack(pady=10)
     
     def _copy_pgn(self):
         """PGN'i panoya kopyala"""
