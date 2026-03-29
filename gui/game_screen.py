@@ -208,6 +208,18 @@ class GameScreen(ctk.CTkFrame):
         )
         self.undo_btn.pack(side="left", padx=5, pady=10)
         
+        # Tahtayı çevir butonu
+        self.flip_btn = ctk.CTkButton(
+            footer,
+            text="🔄 Tahtayı Çevir",
+            font=ctk.CTkFont(size=13),
+            fg_color=THEME["button_bg"],
+            hover_color=THEME["button_hover"],
+            command=self._on_flip_click,
+            width=130
+        )
+        self.flip_btn.pack(side="left", padx=5, pady=10)
+        
         # Hamleleri kopyala butonu
         self.copy_btn = ctk.CTkButton(
             footer,
@@ -249,6 +261,10 @@ class GameScreen(ctk.CTkFrame):
     def _on_undo_click(self):
         """Hamle geri al butonu tıklandı - override edilecek"""
         pass
+    
+    def _on_flip_click(self):
+        """Tahtayı çevir butonu tıklandı"""
+        self.chess_board.set_flipped(not self.chess_board.flipped)
     
     def _on_copy_click(self):
         """Hamleleri kopyala - override edilecek"""
