@@ -1,14 +1,19 @@
 """
-Satranç Zamanlayıcısı
+Satranç Zamanlayıcısı - Chess.com Tarzı
 """
 import customtkinter as ctk
 from typing import Callable, Optional
 import time
 import threading
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+from config import THEME
 
 
 class ChessTimer(ctk.CTkFrame):
-    """Satranç süresi widget'ı"""
+    """Chess.com tarzı zamanlayıcı widget"""
     
     def __init__(self, parent, initial_time: int = 300, increment: int = 0,
                  on_timeout: Optional[Callable] = None, player_name: str = "Oyuncu",
@@ -38,39 +43,61 @@ class ChessTimer(ctk.CTkFrame):
         
     def _setup_ui(self):
         """UI oluştur"""
-        self.configure(fg_color="#262421", corner_radius=10)
+        self.configure(
+            fg_color=THEME["timer_inactive_bg"],
+            corner_radius=8,
+            border_width=0
+        )
         
-        # Oyuncu ismi
+        # Ana layout - yatay
+        content = ctk.CTkFrame(self, fg_color="transparent")
+        content.pack(fill="both", expand=True, padx=12, pady=8)
+        
+        # Sol: Oyuncu ismi
         self.name_label = ctk.CTkLabel(
-            self,
+            content,
             text=self.player_name,
-            font=ctk.CTkFont(size=14, weight="bold"),
-            text_color="#B0B0B0"
+            font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+            text_color=THEME["text_secondary"],
+            anchor="w"
         )
-        self.name_label.pack(pady=(10, 5), padx=15, anchor="w")
+        self.name_label.pack(side="left", fill="x", expand=True)
         
-        # Süre göstergesi
-        self.time_label = ctk.CTkLabel(
-            self,
-            text=self._format_time(),
-            font=ctk.CTkFont(family="Consolas", size=32, weight="bold"),
-            text_color="#FFFFFF"
+        # Sağ: Süre göstergesi (chess.com tarzı monospace)
+        self.time_container = ctk.CTkFrame(
+            content,
+            fg_color=THEME["bg_tertiary"],
+            corner_radius=6,
+            width=95,
+            height=34
         )
-        self.time_label.pack(pady=(0, 10), padx=15)
+        self.time_container.pack(side="right")
+        self.time_container.pack_propagate(False)
+        
+        self.time_label = ctk.CTkLabel(
+            self.time_container,
+            text=self._format_time(),
+            font=ctk.CTkFont(family="Consolas", size=20, weight="bold"),
+            text_color=THEME["text_primary"],
+            anchor="center"
+        )
+        self.time_label.pack(fill="both", expand=True)
         
     def _format_time(self) -> str:
-        """Süreyi MM:SS formatında döndür"""
+        """Süreyi formatla"""
         if self.is_unlimited:
             return "∞"
         
         minutes = int(self.remaining_time // 60)
         seconds = int(self.remaining_time % 60)
         
-        if self.remaining_time < 60:
-            # Son dakikada ondalık saniye göster
-            return f"{seconds}.{int((self.remaining_time % 1) * 10)}"
+        if self.remaining_time < 20:
+            # Son 20 saniyede ondalık
+            return f"{seconds:2d}.{int((self.remaining_time % 1) * 10)}"
+        elif self.remaining_time < 60:
+            return f"0:{seconds:02d}"
         
-        return f"{minutes:02d}:{seconds:02d}"
+        return f"{minutes}:{seconds:02d}"
     
     def start(self):
         """Zamanlayıcıyı başlat"""
@@ -83,8 +110,10 @@ class ChessTimer(ctk.CTkFrame):
         self._timer_thread.start()
         
         # Aktif görünüm
-        self.configure(fg_color="#3D3A37")
-        self.time_label.configure(text_color="#81B64C")
+        self.configure(fg_color=THEME["timer_active_bg"])
+        self.time_container.configure(fg_color=THEME["bg_elevated"])
+        self.time_label.configure(text_color=THEME["accent"])
+        self.name_label.configure(text_color=THEME["text_primary"])
         
     def stop(self):
         """Zamanlayıcıyı durdur"""
@@ -95,8 +124,10 @@ class ChessTimer(ctk.CTkFrame):
         self._stop_event.set()
         
         # Pasif görünüm
-        self.configure(fg_color="#262421")
-        self.time_label.configure(text_color="#FFFFFF")
+        self.configure(fg_color=THEME["timer_inactive_bg"])
+        self.time_container.configure(fg_color=THEME["bg_tertiary"])
+        self.time_label.configure(text_color=THEME["text_secondary"])
+        self.name_label.configure(text_color=THEME["text_secondary"])
         
     def add_increment(self):
         """Hamle sonu ek süre ekle"""
@@ -109,7 +140,7 @@ class ChessTimer(ctk.CTkFrame):
         last_time = time.time()
         
         while self.is_running and self.remaining_time > 0:
-            if self._stop_event.wait(0.1):
+            if self._stop_event.wait(0.05):  # 50ms (daha smooth)
                 break
             
             current_time = time.time()
@@ -118,7 +149,6 @@ class ChessTimer(ctk.CTkFrame):
             
             self.remaining_time = max(0, self.remaining_time - elapsed)
             
-            # UI güncelleme (thread-safe)
             try:
                 self.after(0, self._update_display)
             except:
@@ -134,11 +164,14 @@ class ChessTimer(ctk.CTkFrame):
         
         # Son 30 saniyede kırmızı
         if not self.is_unlimited and self.remaining_time < 30:
-            self.time_label.configure(text_color="#E84545")
+            if self.is_running:
+                self.time_label.configure(text_color=THEME["timer_warning"])
+                self.time_container.configure(fg_color="#3D2020")
     
     def _handle_timeout(self):
         """Süre bittiğinde"""
-        self.time_label.configure(text="0:00", text_color="#E84545")
+        self.time_label.configure(text="0:00", text_color=THEME["timer_warning"])
+        self.time_container.configure(fg_color="#3D2020")
         if self.on_timeout:
             self.on_timeout()
     
@@ -150,7 +183,8 @@ class ChessTimer(ctk.CTkFrame):
             self.is_unlimited = (initial_time <= 0)
         self.remaining_time = self.initial_time
         self._update_display()
-        self.time_label.configure(text_color="#FFFFFF")
+        self.time_label.configure(text_color=THEME["text_secondary"])
+        self.time_container.configure(fg_color=THEME["bg_tertiary"])
     
     def set_unlimited(self, unlimited: bool):
         """Süresiz mod ayarla"""

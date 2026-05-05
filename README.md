@@ -1,170 +1,75 @@
-# ♔ Satranç - Çevrimdışı Satranç Oyunu
+# ♔ Satranç Pro - Professional Chess Application
 
-Modern, Chess.com tarzı çevrimdışı satranç uygulaması. Stockfish motoru ile güçlendirilmiştir.
+Modern, Chess.com tarzı, profesyonel analiz özelliklerine sahip masaüstü satranç uygulaması. Stockfish motoru ile güçlendirilmiş, yüksek doğrulukta analiz ve performans odaklı bir deneyim sunar.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)
 
-## 🎮 Özellikler
+## 🎮 Temel Özellikler
 
-### 🤖 Botla Oyna
-- **ELO Ayarı**: 100-3200 arası bot seviyesi
-- **Süre Kontrolü**: Farklı zaman formatları (1, 2, 3, 5, 10, 15, 30, 60 dakika)
-- **Hamle Başı Ek Süre**: 0-10 saniye increment
-- **Süresiz Mod**: Zaman baskısı olmadan oyna
-- **İpucu Sistemi**: En iyi hamleyi yeşil ok ile göster
-- **Renk Seçimi**: Beyaz veya siyah taşlarla oyna
+### 🤖 Botla Oyna (Professional Engine)
+- **Hassas ELO Ayarı**: 100 ile 3200 ELO arası her seviyede rakip.
+- **Dinamik Süre Kontrolü**: Bullet, Blitz ve Rapid formatları (1, 3, 5, 10, 30, 60 dk).
+- **Artırmalı Süre (Increment)**: Hamle başına ek süre desteği.
+- **Görsel İpucu Sistemi**: En iyi hamleleri tahta üzerinde yeşil oklar ile görme.
 
-### 👥 Arkadaşla Oyna
-- Aynı bilgisayarda 2 kişilik oyun
-- Her iki taraf için ayrı süre sayacı
-- İpucu sistemi (sırası gelen için)
-- Tüm süre kontrol seçenekleri
+### 👥 Yerel Çok Oyunculu
+- Aynı bilgisayar üzerinden arkadaşınızla profesyonel süre kontrolü eşliğinde maç yapın.
 
-### 📊 Analiz Modu
-- **PGN Import**: Chess.com'dan kopyala-yapıştır
-- **Hamle Sınıflandırma**: Chess.com tarzı renkli değerlendirme
-- **Accuracy Hesaplama**: Her iki taraf için % doğruluk
-- **Hamle Navigasyonu**: İleri/Geri butonları ile analiz
+### 📊 Gelişmiş Analiz Ekranı (Chess.com Standartlarında)
+- **İnteraktif Tahta**: Analiz sırasında taşları serbestçe hareket ettirin, varyasyonları keşfedin.
+- **Top 3 Hamle Önerisi**: Stockfish Multipv analizi ile o anki konumun en iyi 3 devam yolunu görün.
+- **Canlı Ok Yardımı**: En iyi hamleyi tahta üzerinde anlık ok ile takip edin.
+- **CAPS 2.0 Doğruluk Hesaplaması**: Chess.com'un resmi $103.1668 \times e^{-0.04354 \times \text{wp\_loss\%}} - 3.1668$ formülü ile maç sonu analiz.
+- **Performans ELO Tahmini**: Maç performansınıza göre tahmini ELO seviyeniz.
+- **Brilliant (!!) Sistemi**: Gerçek feda gerektiren efsanevi hamlelerin tespiti.
 
-## 🎨 Hamle Renk Kodları
+### 📜 Maç Geçmişi & Senkronizasyon
+- **Kalıcı Geçmiş**: Oynadığınız tüm maçlar otomatik kaydedilir, istediğiniz zaman analiz edilebilir.
+- **Bulut Senkronizasyonu**: Temalar ve Stockfish motoru otomatik olarak GitHub üzerinden %APPDATA% klasörüne senkronize edilir.
 
-| Hamle Tipi | Renk | Sembol |
-|------------|------|--------|
-| Efsane (Brilliant) | 🔵 Camgöbeği | !! |
-| Harika (Great) | 💙 Mavi | ! |
-| İyi (Good) | 💚 Yeşil | |
-| Normal | ⚪ Gri | |
-| Hatasız (Inaccuracy) | 💛 Sarı | ?! |
-| Hata (Mistake) | 🟠 Turuncu | ? |
-| Vahim (Blunder) | 🔴 Kırmızı | ?? |
+## 🎨 Hamle Sınıflandırma Sistemi
 
-## 📦 Kurulum
+| Hamle Tipi | Sembol | Renk | Açıklama |
+|------------|--------|------|----------|
+| **Brilliant** | !! | 🔵 Camgöbeği | Materyal feda ederek üstünlük sağlayan efsane hamle |
+| **Great** | ! | 💙 Mavi | Pozisyonu ciddi şekilde iyileştiren hamle |
+| **Best** | ★ | 💚 Koyu Yeşil | Motorun birinci sıradaki tercihi |
+| **Book** | 📖 | 🟫 Kahverengi | Açılış teorisi hamlesi |
+| **Good** | ✓ | ⚪ Beyaz | Pozisyonu koruyan sağlam hamle |
+| **Inaccuracy** | ?! | 💛 Sarı | Avantajı hafifçe azaltan yanlışlık |
+| **Mistake** | ? | 🟠 Turuncu | Avantajı ciddi şekilde kaybettiren hata |
+| **Blunder** | ?? | 🔴 Kırmızı | Oyunu kaybettirebilecek vahim hata |
+| **Miss** | X | 🔴 Parlak Kırmızı | Galibiyeti veya büyük avantajı kaçıran hamle |
+
+## 📦 Kurulum ve Çalıştırma
 
 ### Gereksinimler
 - Python 3.10 veya üzeri
-- Windows işletim sistemi
+- `requests`, `customtkinter`, `python-chess`, `Pillow` kütüphaneleri
 
-### Adımlar
+### Hızlı Başlangıç
+1. **Repoyu Klonlayın**:
+   ```bash
+   git clone https://github.com/yasiyorum/ChessGame
+   cd ChessGame
+   ```
+2. **Bağımlılıkları Yükleyin**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. **Uygulamayı Başlatın**:
+   ```bash
+   python main.py
+   ```
 
-1. **Repoyu klonla**
-```bash
-git clone https://github.com/kullanici/chess.git
-cd chess
-```
-
-2. **Sanal ortam oluştur**
-```bash
-python -m venv env
-```
-
-3. **Sanal ortamı aktifle**
-```bash
-# Windows
-.\env\Scripts\activate
-
-# Linux/Mac
-source env/bin/activate
-```
-
-4. **Bağımlılıkları yükle**
-```bash
-pip install -r requirements.txt
-```
-
-5. **Stockfish motorunu indir**
-   - [Stockfish resmi sitesi](https://stockfishchess.org/download/) adresinden Windows sürümünü indir
-   - `stockfish-windows-x86-64-avx2.exe` dosyasını `stockfish/` klasörüne koy
-
-6. **Uygulamayı çalıştır**
-```bash
-python main.py
-```
-
-Veya Windows'ta:
-```bash
-run.bat
-```
-
-## 📁 Proje Yapısı
-
-```
-chess/
-├── main.py                    # Ana uygulama
-├── config.py                  # Ayarlar ve sabitler
-├── requirements.txt           # Python bağımlılıkları
-├── run.bat                    # Windows başlatıcı
-├── engine/
-│   ├── chess_engine.py        # Satranç mantığı
-│   └── stockfish_manager.py   # Stockfish iletişimi
-├── gui/
-│   ├── main_menu.py           # Ana menü
-│   ├── chess_board.py         # Tahta widget'ı
-│   ├── game_screen.py         # Oyun ekranı (base)
-│   ├── bot_game.py            # Bot modu
-│   ├── friend_game.py         # Arkadaş modu
-│   ├── analysis_screen.py     # Analiz modu
-│   └── components/
-│       ├── timer.py           # Süre sayacı
-│       ├── move_list.py       # Hamle listesi
-│       └── dialogs.py         # Diyalog pencereleri
-└── stockfish/
-    └── stockfish-windows-x86-64-avx2.exe  # (Manuel indirilmeli)
-```
-
-## 🔧 Yapılandırma
-
-`config.py` dosyasından aşağıdaki ayarları değiştirebilirsiniz:
-
-- `STOCKFISH_THREADS`: CPU thread sayısı (varsayılan: 1)
-- `STOCKFISH_HASH`: Hash tablosu boyutu MB (varsayılan: 64)
-- `MIN_ELO` / `MAX_ELO`: Bot ELO aralığı
-- Tahta ve tema renkleri
-
-## 📋 Chess.com Uyumluluğu
-
-### PGN Export
-Oyun sonunda "Hamleleri Kopyala" butonuna tıklayarak Chess.com uyumlu PGN alabilirsiniz:
-
-```
-[Event "Çevrimdışı Oyun"]
-[Site "Çevrimdışı"]
-[Date "2026.01.02"]
-[White "Sen"]
-[Black "Stockfish (1200)"]
-[Result "1-0"]
-
-1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O 1-0
-```
-
-### PGN Import
-Analiz modunda Chess.com'dan kopyaladığınız PGN'i doğrudan yapıştırabilirsiniz.
-
-## 🛠️ Teknolojiler
-
-- **Python 3**: Ana programlama dili
-- **CustomTkinter**: Modern GUI framework
-- **python-chess**: Satranç kuralları ve PGN
-- **Stockfish**: Satranç motoru
-- **Pillow**: Görsel işleme
-
-## 📄 Lisans
-
-Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için [LICENSE](LICENSE) dosyasına bakın.
+## 📁 Dosya Yapısı
+- `AppData/Roaming/ChessPro`: Tüm kullanıcı ayarları, temalar ve maç geçmişi burada güvenle saklanır.
+- `themes/`: Kendi özel taş resimlerinizi ve tahta renklerinizi ekleyebileceğiniz tema klasörü.
 
 ## 🤝 Katkıda Bulunma
-
-1. Fork yapın
-2. Feature branch oluşturun (`git checkout -b feature/yeni-ozellik`)
-3. Değişikliklerinizi commit edin (`git commit -m 'Yeni özellik eklendi'`)
-4. Branch'i push edin (`git push origin feature/yeni-ozellik`)
-5. Pull Request açın
-
-## 📞 İletişim
-
-Sorularınız için issue açabilirsiniz.
+Feature branch'ler açarak veya issue bildirerek projeye katkıda bulunabilirsiniz.
 
 ---
-
-⭐ Bu projeyi beğendiyseniz yıldız vermeyi unutmayın!
+⭐ **Emeğe saygı için yıldız vermeyi unutmayın!**

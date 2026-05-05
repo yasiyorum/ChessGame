@@ -1,5 +1,5 @@
 """
-Botla Oyna Modu
+Botla Oyna Modu - Chess.com Tarzı
 Stockfish motoruna karşı oyun
 """
 import customtkinter as ctk
@@ -34,7 +34,7 @@ class BotGame(GameScreen):
         self.increment_seconds = 0
         self.unlimited = False
         
-        # Stockfish'i arka planda önceden başlat (donmayı önlemek için)
+        # Stockfish'i arka planda önceden başlat
         import threading
         threading.Thread(target=self._preload_stockfish, daemon=True).start()
         
@@ -61,20 +61,32 @@ class BotGame(GameScreen):
         self.increment_seconds = settings["increment_seconds"]
         self.unlimited = settings["unlimited"]
         
-        # Stockfish ELO ayarı (zaten arka planda başlatılmış)
+        # Stockfish ELO ayarı
         self.stockfish.set_elo(self.bot_elo)
         
         # Motor sıfırla
         self.engine.reset()
-        self.engine.set_players(
-            "Sen" if self.player_color == chess.WHITE else f"Stockfish ({self.bot_elo})",
-            f"Stockfish ({self.bot_elo})" if self.player_color == chess.WHITE else "Sen"
-        )
+        
+        player_name = "Sen"
+        bot_name = f"Stockfish ({self.bot_elo})"
+        
+        if self.player_color == chess.WHITE:
+            self.engine.set_players(player_name, bot_name)
+        else:
+            self.engine.set_players(bot_name, player_name)
         
         # Tahta ayarları
         self.chess_board.set_board(self.engine.board)
         self.chess_board.set_flipped(self.player_color == chess.BLACK)
         self.chess_board.set_interactive(True)
+        
+        # Oyuncu isimleri
+        self.player_name_label.configure(text=player_name)
+        self.opponent_name_label.configure(text=bot_name)
+        
+        # Captured pieces renkleri ayarla
+        self.player_captured.color = self.player_color
+        self.opponent_captured.color = not self.player_color
         
         # Timer ayarları
         initial_time = self.time_minutes * 60 if not self.unlimited else 0
@@ -82,19 +94,23 @@ class BotGame(GameScreen):
         self.player_timer.reset(initial_time)
         self.player_timer.increment = self.increment_seconds
         self.player_timer.set_unlimited(self.unlimited)
-        self.player_timer.name_label.configure(text="Sen")
         
         self.opponent_timer.reset(initial_time)
         self.opponent_timer.increment = self.increment_seconds
         self.opponent_timer.set_unlimited(self.unlimited)
-        self.opponent_timer.name_label.configure(text=f"Stockfish ({self.bot_elo})")
         
         # Hamle listesi temizle
         self.move_list.clear()
         
+        # Eval bar sıfırla
+        self.eval_bar.set_eval(0)
+        
         # Oyun aktif
         self.game_active = True
         self.set_status(f"ELO: {self.bot_elo}")
+        
+        # Alınan taşları sıfırla
+        self.update_captured_pieces()
         
         # Siyah seçildiyse bot ilk hamleyi yapar
         if self.player_color == chess.BLACK:
@@ -115,6 +131,10 @@ class BotGame(GameScreen):
         
         # Hamle listesine ekle
         self.move_list.add_move(san)
+        
+        # Alınan taşları güncelle
+        self.update_captured_pieces()
+        self._update_eval_bar()
         
         # Timer
         if not self.unlimited:
@@ -153,11 +173,15 @@ class BotGame(GameScreen):
         san = self.engine.board.san(move)
         self.engine.make_move(move)
         
-        # Tahtayı güncelle (board referansı paylaşılıyor, sadece görsel güncelleme gerek)
+        # Tahtayı güncelle
         self.chess_board.set_last_move(move)
         
         # Hamle listesine ekle
         self.move_list.add_move(san)
+        
+        # Alınan taşları güncelle
+        self.update_captured_pieces()
+        self._update_eval_bar()
         
         # Timer
         if not self.unlimited:
@@ -209,14 +233,12 @@ class BotGame(GameScreen):
             self.after(3000, self.chess_board.clear_hint)
     
     def _on_undo_click(self):
-        """Hamle geri al - Botla oynarken 2 hamle geri al (kendi ve botun hamlesi)"""
+        """Hamle geri al"""
         if not self.game_active:
             return
         
-        # En az 2 hamle olmalı (bizim ve botun hamlesi)
         if len(self.engine.move_history) < 2:
             if len(self.engine.move_history) == 1:
-                # Sadece 1 hamle varsa (ilk hamle) onu geri al
                 self.engine.undo_move()
                 self.move_list.remove_last_move()
             return
@@ -236,7 +258,11 @@ class BotGame(GameScreen):
         else:
             self.chess_board.set_last_move(None)
         
-        # Sıra bizde olmalı
+        # Alınan taşları güncelle
+        self.update_captured_pieces()
+        self._update_eval_bar()
+        
+        # Sıra bizde
         self.chess_board.set_interactive(True)
         self.set_status(f"ELO: {self.bot_elo}")
     
@@ -249,12 +275,11 @@ class BotGame(GameScreen):
         self._handle_game_over()
     
     def _on_copy_click(self):
-        """Hamleleri kopyala (Chess.com uyumlu)"""
+        """Hamleleri kopyala"""
         pgn = self.engine.get_pgn()
         self.clipboard_clear()
         self.clipboard_append(pgn)
         
-        # Geri bildirim
         self.copy_btn.configure(text="✓ Kopyalandı!")
         self.after(1500, lambda: self.copy_btn.configure(text="📋 Hamleleri Kopyala"))
     
@@ -278,7 +303,6 @@ class BotGame(GameScreen):
         self.player_timer.stop()
         self.opponent_timer.stop()
         
-        # Sonuç belirleme
         result = self.engine.result
         
         if result == "1-0":
@@ -294,7 +318,6 @@ class BotGame(GameScreen):
         else:
             result_text = "Berabere 🤝"
         
-        # Sebep
         if self.engine.board.is_checkmate():
             reason = "Şah mat!"
         elif self.engine.board.is_stalemate():
@@ -308,7 +331,18 @@ class BotGame(GameScreen):
         else:
             reason = "Oyun terk edildi"
         
-        # Diyalog göster
+        # Maç geçmişine kaydet
+        from game_history import GameHistory
+        history = GameHistory.get_instance()
+        history.add_game(
+            white_name=self.engine.white_player,
+            black_name=self.engine.black_player,
+            result=self.engine.result or "*",
+            move_count=len(self.engine.move_history),
+            pgn=self.engine.get_pgn(),
+            mode="bot"
+        )
+        
         GameEndDialog(
             self,
             result=result_text,

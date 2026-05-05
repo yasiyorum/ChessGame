@@ -1,35 +1,32 @@
 """
-Satranç Tahtası Widget'ı
-Canvas tabanlı interaktif satranç tahtası
+Satranç Tahtası Widget'ı - Chess.com Kalitesinde
+Canvas tabanlı interaktif satranç tahtası - PNG taş resimleri
 """
 import customtkinter as ctk
 import chess
 from typing import Optional, Callable, List, Tuple
+from PIL import Image, ImageTk
 import sys
 import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from config import (
-    BOARD_LIGHT_COLOR, BOARD_DARK_COLOR, BOARD_HIGHLIGHT_COLOR,
-    BOARD_SELECTED_COLOR, BOARD_LAST_MOVE_COLOR, BOARD_HINT_COLOR,
-    BOARD_CHECK_COLOR, PIECE_UNICODE
-)
+from config import PIECE_UNICODE, THEME
+from theme_manager import ThemeManager
 
 
 class ChessBoard(ctk.CTkCanvas):
-    """Interaktif satranç tahtası"""
+    """Interaktif satranç tahtası - Chess.com tarzı"""
     
-    # Koordinat etiketi için kenar boşluğu
-    COORD_MARGIN = 25
+    # Koordinat etiketi karelerin içinde (chess.com gibi)
+    COORD_MARGIN = 0  # Artık dışarıda değil, karelerin içinde
     
     def __init__(self, parent, size: int = 480, flipped: bool = False,
                  on_move: Optional[Callable] = None,
                  on_promotion_needed: Optional[Callable] = None,
                  **kwargs):
-        # Koordinatlar için ekstra alan ekle
-        total_size = size + self.COORD_MARGIN
+        total_size = size
         super().__init__(parent, width=total_size, height=total_size, 
-                        highlightthickness=0, bg="#312E2B", **kwargs)
+                        highlightthickness=0, bg=THEME["bg_primary"], **kwargs)
         
         self.total_size = total_size
         self.size = size
@@ -37,6 +34,9 @@ class ChessBoard(ctk.CTkCanvas):
         self.flipped = flipped
         self.on_move = on_move
         self.on_promotion_needed = on_promotion_needed
+        
+        # Tema
+        self.theme = ThemeManager.get_instance()
         
         # Oyun durumu
         self.board = chess.Board()
@@ -46,8 +46,11 @@ class ChessBoard(ctk.CTkCanvas):
         self.hint_move: Optional[chess.Move] = None
         self.interactive = True
         
-        # Taş fontları
-        self.piece_font_size = int(self.square_size * 0.8)
+        # Taş resimleri referansları (garbage collection önlemi)
+        self._piece_refs = []
+        
+        # Taş fontları (fallback)
+        self.piece_font_size = int(self.square_size * 0.75)
         
         # Event binding
         self.bind("<Button-1>", self._on_click)
@@ -58,14 +61,14 @@ class ChessBoard(ctk.CTkCanvas):
     
     def _on_resize(self, event):
         """Yeniden boyutlandırma"""
-        new_total_size = min(event.width, event.height)
-        new_size = new_total_size - self.COORD_MARGIN
+        new_size = min(event.width, event.height)
         if new_size != self.size and new_size > 100:
-            self.total_size = new_total_size
             self.size = new_size
+            self.total_size = new_size
             self.square_size = new_size // 8
-            self.piece_font_size = int(self.square_size * 0.8)
-            self.configure(width=new_total_size, height=new_total_size)
+            self.piece_font_size = int(self.square_size * 0.75)
+            self.configure(width=new_size, height=new_size)
+            self.theme.clear_cache()  # Boyut değişince cache temizle
             self.draw_board()
     
     def set_board(self, board: chess.Board):
@@ -113,14 +116,15 @@ class ChessBoard(ctk.CTkCanvas):
     def draw_board(self):
         """Tahtayı çiz"""
         self.delete("all")
+        self._piece_refs = []
         
         # Kareleri çiz
         for row in range(8):
             for col in range(8):
                 self._draw_square(row, col)
         
-        # Etiketleri çiz
-        self._draw_labels()
+        # Koordinat etiketlerini kare içine çiz (chess.com gibi)
+        self._draw_coordinates()
         
         # Taşları çiz
         for square in chess.SQUARES:
@@ -132,9 +136,33 @@ class ChessBoard(ctk.CTkCanvas):
         if self.hint_move:
             self._draw_hint_arrow(self.hint_move)
     
+    def _get_square_color(self, row: int, col: int) -> str:
+        """Kare rengini belirle"""
+        square = chess.square(col, row)
+        is_light = (row + col) % 2 == 1
+        
+        # Varsayılan renk
+        color = self.theme.board_light if is_light else self.theme.board_dark
+        
+        # Son hamle vurgusu
+        if self.last_move:
+            if square in (self.last_move.from_square, self.last_move.to_square):
+                color = self.theme.board_last_move_light if is_light else self.theme.board_last_move_dark
+        
+        # Seçili kare
+        if square == self.selected_square:
+            color = self.theme.board_selected
+        
+        # Şah durumu - gradient kırmızı
+        if self.board.is_check():
+            king_square = self.board.king(self.board.turn)
+            if square == king_square:
+                color = self.theme.board_check
+        
+        return color
+    
     def _draw_square(self, row: int, col: int):
         """Tek bir kareyi çiz"""
-        # Koordinatları hesapla (flipped durumuna göre)
         if self.flipped:
             display_row = row
             display_col = 7 - col
@@ -142,52 +170,27 @@ class ChessBoard(ctk.CTkCanvas):
             display_row = 7 - row
             display_col = col
         
-        # Koordinat margin'i ekle (sol tarafta 1-8, altta a-h için)
-        x1 = self.COORD_MARGIN + display_col * self.square_size
+        x1 = display_col * self.square_size
         y1 = display_row * self.square_size
         x2 = x1 + self.square_size
         y2 = y1 + self.square_size
         
-        # Kare rengi
         square = chess.square(col, row)
-        is_light = (row + col) % 2 == 1
-        color = BOARD_LIGHT_COLOR if is_light else BOARD_DARK_COLOR
-        
-        # Son hamle vurgusu
-        if self.last_move:
-            if square in (self.last_move.from_square, self.last_move.to_square):
-                color = BOARD_LAST_MOVE_COLOR
-        
-        # Seçili kare
-        if square == self.selected_square:
-            color = BOARD_SELECTED_COLOR
-        
-        # Geçerli hamleler
-        if self.selected_square is not None:
-            for move in self.legal_moves:
-                if move.to_square == square:
-                    color = BOARD_HIGHLIGHT_COLOR
-        
-        # Şah durumu
-        if self.board.is_check():
-            king_square = self.board.king(self.board.turn)
-            if square == king_square:
-                color = BOARD_CHECK_COLOR
+        color = self._get_square_color(row, col)
         
         self.create_rectangle(x1, y1, x2, y2, fill=color, outline="")
         
-        # Geçerli hamle noktaları
+        # Geçerli hamle göstergeleri
         if self.selected_square is not None:
             for move in self.legal_moves:
                 if move.to_square == square:
-                    # Hedef karede taş varsa çerçeve, yoksa nokta
                     if self.board.piece_at(square):
-                        self._draw_capture_indicator(x1, y1, x2, y2)
+                        self._draw_capture_ring(x1, y1, x2, y2)
                     else:
                         self._draw_move_dot(x1, y1)
     
     def _draw_move_dot(self, x1: int, y1: int):
-        """Geçerli hamle noktası çiz"""
+        """Chess.com tarzı hamle noktası (yarı-şeffaf daire)"""
         center_x = x1 + self.square_size // 2
         center_y = y1 + self.square_size // 2
         radius = self.square_size // 6
@@ -195,79 +198,93 @@ class ChessBoard(ctk.CTkCanvas):
         self.create_oval(
             center_x - radius, center_y - radius,
             center_x + radius, center_y + radius,
-            fill="#666666", outline=""
+            fill="#14120F", outline="", stipple="gray50"
         )
     
-    def _draw_capture_indicator(self, x1: int, y1: int, x2: int, y2: int):
-        """Yeme göstergesi çiz"""
-        # Köşe üçgenleri
-        corner_size = self.square_size // 4
-        color = "#666666"
+    def _draw_capture_ring(self, x1: int, y1: int, x2: int, y2: int):
+        """Chess.com tarzı yeme göstergesi (halka)"""
+        padding = self.square_size // 12
+        ring_width = self.square_size // 7
         
-        # Sol üst
-        self.create_polygon(
-            x1, y1, x1 + corner_size, y1, x1, y1 + corner_size,
-            fill=color, outline=""
-        )
-        # Sağ üst
-        self.create_polygon(
-            x2, y1, x2 - corner_size, y1, x2, y1 + corner_size,
-            fill=color, outline=""
-        )
-        # Sol alt
-        self.create_polygon(
-            x1, y2, x1 + corner_size, y2, x1, y2 - corner_size,
-            fill=color, outline=""
-        )
-        # Sağ alt
-        self.create_polygon(
-            x2, y2, x2 - corner_size, y2, x2, y2 - corner_size,
-            fill=color, outline=""
+        # Dış halka
+        self.create_oval(
+            x1 + padding, y1 + padding,
+            x2 - padding, y2 - padding,
+            fill="", outline="#14120F", width=ring_width,
+            stipple="gray50"
         )
     
-    def _draw_labels(self):
-        """Koordinat etiketlerini tahtanın dışına çiz"""
-        font_size = max(10, int(self.COORD_MARGIN * 0.55))
-        coord_color = "#B0B0B0"  # Açık gri
+    def _draw_coordinates(self):
+        """Chess.com tarzı koordinatlar"""
+        style = self.theme.settings.get("coords_style", "inside")
+        if style == "off":
+            return
+            
+        coord_font_size = max(9, int(self.square_size * 0.18))
         
         for i in range(8):
-            # Sol taraf: Satır numaraları (1-8)
+            # Sütun harfleri (alttaki satırın sağ alt köşesi)
             if self.flipped:
-                rank = i + 1  # 1'den 8'e (aşağıdan yukarı)
+                file_char = chr(ord('h') - i)
+                bottom_row = 0
             else:
-                rank = 8 - i  # 8'den 1'e (yukarıdan aşağı)
+                file_char = chr(ord('a') + i)
+                bottom_row = 7
             
-            x = self.COORD_MARGIN // 2
-            y = i * self.square_size + self.square_size // 2
+            is_light_square_file = (bottom_row + i) % 2 == 0
+            # Kontrast için ters renk
+            file_color = self.theme.board_dark if is_light_square_file else self.theme.board_light
             
-            self.create_text(
-                x, y,
-                text=str(rank),
-                font=("Arial", font_size, "bold"),
-                fill=coord_color,
-                anchor="center"
-            )
-            
-            # Alt taraf: Sütun harfleri (a-h)
-            if self.flipped:
-                file_char = chr(ord('h') - i)  # h'den a'ya
+            if style == "outside":
+                # Şimdilik outside desteği tam yok, köşeye yakın çizelim
+                x = i * self.square_size + self.square_size // 2
+                y = self.size - coord_font_size // 2
+                anchor = "s"
+                file_color = self.theme.board_coords_color
             else:
-                file_char = chr(ord('a') + i)  # a'dan h'ye
-            
-            x = self.COORD_MARGIN + i * self.square_size + self.square_size // 2
-            y = 8 * self.square_size + self.COORD_MARGIN // 2
+                x = i * self.square_size + self.square_size - 3
+                y = self.size - 3
+                anchor = "se"
             
             self.create_text(
                 x, y,
                 text=file_char,
-                font=("Arial", font_size, "bold"),
-                fill=coord_color,
-                anchor="center"
+                font=("Segoe UI", coord_font_size, "bold"),
+                fill=file_color,
+                anchor=anchor
+            )
+            
+            # Satır numaraları (sol taraftaki sütunun sol üst köşesi)
+            if self.flipped:
+                rank = i + 1
+                left_col = 7
+            else:
+                rank = 8 - i
+                left_col = 0
+                
+            is_light_square_rank = (i + left_col) % 2 == 0
+            rank_color = self.theme.board_dark if is_light_square_rank else self.theme.board_light
+            
+            if style == "outside":
+                x = coord_font_size // 2
+                y = i * self.square_size + self.square_size // 2
+                anchor = "w"
+                rank_color = self.theme.board_coords_color
+            else:
+                x = 4
+                y = i * self.square_size + 4
+                anchor = "nw"
+            
+            self.create_text(
+                x, y,
+                text=str(rank),
+                font=("Segoe UI", coord_font_size, "bold"),
+                fill=rank_color,
+                anchor=anchor
             )
     
     def _draw_piece(self, square: chess.Square, piece: chess.Piece):
-        """Taş çiz"""
-        # Koordinatları hesapla
+        """Taş çiz (PNG resim veya Unicode fallback)"""
         col = chess.square_file(square)
         row = chess.square_rank(square)
         
@@ -278,69 +295,77 @@ class ChessBoard(ctk.CTkCanvas):
             display_row = 7 - row
             display_col = col
         
-        x = self.COORD_MARGIN + display_col * self.square_size + self.square_size // 2
+        x = display_col * self.square_size + self.square_size // 2
         y = display_row * self.square_size + self.square_size // 2
         
-        # Unicode sembolü
-        symbol = piece.symbol()
-        unicode_piece = PIECE_UNICODE.get(symbol, "?")
+        # PNG resim dene
+        piece_key = self.theme.get_piece_key(piece)
+        piece_size = int(self.square_size * 0.88)
+        photo = self.theme.get_piece_image(piece_key, piece_size)
         
-        # Renk
-        text_color = "#FFFFFF" if piece.color == chess.WHITE else "#000000"
-        outline_color = "#000000" if piece.color == chess.WHITE else "#FFFFFF"
-        
-        # Gölge efekti
-        self.create_text(
-            x + 2, y + 2,
-            text=unicode_piece,
-            font=("Segoe UI Symbol", self.piece_font_size),
-            fill="#444444"
-        )
-        
-        # Ana taş
-        self.create_text(
-            x, y,
-            text=unicode_piece,
-            font=("Segoe UI Symbol", self.piece_font_size),
-            fill=text_color
-        )
+        if photo:
+            self.create_image(x, y, image=photo, anchor="center")
+            self._piece_refs.append(photo)
+        else:
+            # Unicode fallback
+            symbol = piece.symbol()
+            unicode_piece = PIECE_UNICODE.get(symbol, "?")
+            
+            text_color = "#FFFFFF" if piece.color == chess.WHITE else "#000000"
+            outline_color = "#000000" if piece.color == chess.WHITE else "#FFFFFF"
+            
+            # Gölge
+            self.create_text(
+                x + 2, y + 2,
+                text=unicode_piece,
+                font=("Segoe UI Symbol", self.piece_font_size),
+                fill="#444444"
+            )
+            
+            # Ana taş
+            self.create_text(
+                x, y,
+                text=unicode_piece,
+                font=("Segoe UI Symbol", self.piece_font_size),
+                fill=text_color
+            )
     
     def _draw_hint_arrow(self, move: chess.Move):
         """İpucu okunu çiz"""
         from_sq = move.from_square
         to_sq = move.to_square
         
-        # Koordinatları hesapla
         from_col = chess.square_file(from_sq)
         from_row = chess.square_rank(from_sq)
         to_col = chess.square_file(to_sq)
         to_row = chess.square_rank(to_sq)
         
         if self.flipped:
-            from_x = self.COORD_MARGIN + (7 - from_col) * self.square_size + self.square_size // 2
+            from_x = (7 - from_col) * self.square_size + self.square_size // 2
             from_y = from_row * self.square_size + self.square_size // 2
-            to_x = self.COORD_MARGIN + (7 - to_col) * self.square_size + self.square_size // 2
+            to_x = (7 - to_col) * self.square_size + self.square_size // 2
             to_y = to_row * self.square_size + self.square_size // 2
         else:
-            from_x = self.COORD_MARGIN + from_col * self.square_size + self.square_size // 2
+            from_x = from_col * self.square_size + self.square_size // 2
             from_y = (7 - from_row) * self.square_size + self.square_size // 2
-            to_x = self.COORD_MARGIN + to_col * self.square_size + self.square_size // 2
+            to_x = to_col * self.square_size + self.square_size // 2
             to_y = (7 - to_row) * self.square_size + self.square_size // 2
         
-        # Ok çiz
-        arrow_color = BOARD_HINT_COLOR
+        # Yarı-şeffaf ok
+        arrow_color = "#15781B"
         self.create_line(
             from_x, from_y, to_x, to_y,
-            fill=arrow_color, width=8,
-            arrow="last", arrowshape=(20, 25, 8)
+            fill=arrow_color, width=max(8, self.square_size // 6),
+            arrow="last", arrowshape=(20, 25, 8),
+            stipple="gray75"
         )
         
-        # Başlangıç noktası
-        radius = 12
+        # Başlangıç dairesi
+        radius = max(10, self.square_size // 5)
         self.create_oval(
             from_x - radius, from_y - radius,
             from_x + radius, from_y + radius,
-            fill=arrow_color, outline=""
+            fill=arrow_color, outline="", stipple="gray75"
         )
     
     def _on_click(self, event):
@@ -348,19 +373,15 @@ class ChessBoard(ctk.CTkCanvas):
         if not self.interactive:
             return
         
-        # Koordinat margin'ini çıkar
-        adjusted_x = event.x - self.COORD_MARGIN
-        adjusted_y = event.y
-        
         # Tahta dışı tıklamaları yok say
-        if adjusted_x < 0 or adjusted_y < 0:
+        if event.x < 0 or event.y < 0:
             return
-        if adjusted_x >= self.size or adjusted_y >= self.size:
+        if event.x >= self.size or event.y >= self.size:
             return
         
         # Tıklanan kareyi bul
-        col = adjusted_x // self.square_size
-        row = adjusted_y // self.square_size
+        col = event.x // self.square_size
+        row = event.y // self.square_size
         
         # Sınır kontrolü
         if col < 0 or col > 7 or row < 0 or row > 7:
@@ -414,13 +435,11 @@ class ChessBoard(ctk.CTkCanvas):
         self._make_move(move)
     
     def _make_move(self, move: chess.Move):
-        """Hamle yap - callback hamleyi board'da yapar, biz sadece görsel güncelleme yaparız"""
+        """Hamle yap"""
         if move in self.board.legal_moves:
-            # Callback'i çağır - callback board'a push yapacak
             if self.on_move:
                 self.on_move(move)
             
-            # Görsel güncelleme
             self.last_move = move
             self.selected_square = None
             self.legal_moves = []

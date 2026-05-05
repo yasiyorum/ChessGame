@@ -1,6 +1,6 @@
 """
 Satranç Uygulaması - Ana Giriş Noktası
-Çevrimdışı satranç oyunu: Botla Oyna, Arkadaşla Oyna, Analiz
+Chess.com Kalitesinde Profesyonel Satranç Deneyimi
 """
 import customtkinter as ctk
 import sys
@@ -10,6 +10,7 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 
 from config import APP_NAME, APP_VERSION, WINDOW_WIDTH, WINDOW_HEIGHT, MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT, THEME
+from theme_manager import ThemeManager
 from gui.main_menu import MainMenu
 from gui.bot_game import BotGame
 from gui.friend_game import FriendGame
@@ -17,10 +18,13 @@ from gui.analysis_screen import AnalysisScreen
 
 
 class ChessApp(ctk.CTk):
-    """Ana uygulama penceresi"""
+    """Ana uygulama penceresi - Chess.com tarzı"""
     
     def __init__(self):
         super().__init__()
+        
+        # Tema yöneticisini başlat
+        self.theme_manager = ThemeManager.get_instance()
         
         # Pencere ayarları
         self.title(f"{APP_NAME} v{APP_VERSION}")
@@ -33,6 +37,14 @@ class ChessApp(ctk.CTk):
         
         # Arka plan rengi
         self.configure(fg_color=THEME["bg_primary"])
+        
+        # Pencere ikonunu ayarla
+        try:
+            icon_path = os.path.join(os.path.dirname(__file__), "logo.ico")
+            if os.path.exists(icon_path):
+                self.iconbitmap(icon_path)
+        except:
+            pass
         
         # Mevcut ekran
         self.current_screen = None
@@ -75,13 +87,14 @@ class ChessApp(ctk.CTk):
         )
         self.current_screen.pack(fill="both", expand=True)
     
-    def show_analysis(self):
+    def show_analysis(self, pgn=None):
         """Analiz ekranını göster"""
         self._clear_screen()
         
         self.current_screen = AnalysisScreen(
             self,
-            on_back=self.show_main_menu
+            on_back=self.show_main_menu,
+            initial_pgn=pgn
         )
         self.current_screen.pack(fill="both", expand=True)
     

@@ -1,5 +1,6 @@
 """
 Satranç Uygulaması Konfigürasyon Dosyası
+Chess.com Kalitesinde Profesyonel Satranç
 """
 import os
 import sys
@@ -18,23 +19,24 @@ BASE_PATH = get_base_path()
 
 # Uygulama Ayarları
 APP_NAME = "Satranç"
-APP_VERSION = "1.1"
-WINDOW_WIDTH = 1200
-WINDOW_HEIGHT = 800
-MIN_WINDOW_WIDTH = 1000
-MIN_WINDOW_HEIGHT = 700
+APP_VERSION = "2.0"
+WINDOW_WIDTH = 1300
+WINDOW_HEIGHT = 850
+MIN_WINDOW_WIDTH = 1100
+MIN_WINDOW_HEIGHT = 750
 
 # Stockfish Ayarları
+import utils
+stockfish_dir = utils.sync_from_github("stockfish")
 STOCKFISH_PATH = os.path.join(
-    BASE_PATH, 
-    "stockfish", 
+    stockfish_dir, 
     "stockfish-windows-x86-64-avx2.exe"
 )
 
 # Performans Optimizasyonu
-STOCKFISH_THREADS = 4  # Tek çekirdek kullanarak CPU yükünü azalt
-STOCKFISH_HASH = 64    # MB cinsinden hash tablosu boyutu
-ANALYSIS_WORKERS = 4  # Analiz için paralel iş parçacığı sayısı
+STOCKFISH_THREADS = 4
+STOCKFISH_HASH = 64
+ANALYSIS_WORKERS = 4
 
 # ELO Ayarları
 MIN_ELO = 100
@@ -71,7 +73,7 @@ DEFAULT_INCREMENT_SECONDS = 0
 TIME_OPTIONS = [1, 2, 3, 5, 10, 15, 30, 45, 60, 90, 120]  # Dakika cinsinden
 INCREMENT_OPTIONS = [0, 1, 2, 3, 5, 10, 15, 30, 45, 60, 90, 120]      # Saniye cinsinden
 
-# Tahta Renkleri
+# Tahta Renkleri (varsayılan - tema tarafından override edilebilir)
 BOARD_LIGHT_COLOR = "#EEEED2"
 BOARD_DARK_COLOR = "#769656"
 BOARD_HIGHLIGHT_COLOR = "#BACA44"
@@ -119,23 +121,41 @@ EVAL_THRESHOLDS = {
     "blunder_threshold": 300,      # 200+ cp kayıp
 }
 
-# GUI Tema Renkleri
+# GUI Tema Renkleri (Chess.com Dark Theme)
 THEME = {
-    "bg_primary": "#312E2B",
+    "bg_primary": "#302E2B",
     "bg_secondary": "#272522",
-    "bg_tertiary": "#21201D",
+    "bg_tertiary": "#1E1D1B",
+    "bg_elevated": "#3C3A38",
     "text_primary": "#FFFFFF",
-    "text_secondary": "#B0B0B0",
+    "text_secondary": "#9E9B98",
+    "text_muted": "#6B6966",
     "accent": "#81B64C",
-    "accent_hover": "#9BCF5C",
+    "accent_hover": "#95CA5D",
+    "accent_dark": "#629132",
     "danger": "#E84545",
+    "danger_hover": "#C83030",
     "warning": "#F7C631",
+    "success": "#81B64C",
     "button_bg": "#454341",
     "button_hover": "#555351",
+    "button_active": "#656361",
     "panel_bg": "#262421",
+    "panel_border": "#3A3835",
+    "divider": "#3A3835",
+    "timer_active_bg": "#454341",
+    "timer_inactive_bg": "#262421",
+    "timer_active_text": "#FFFFFF",
+    "timer_warning": "#E84545",
+    "move_list_bg": "#262421",
+    "move_list_hover": "#3A3835",
+    "move_list_selected": "#4A4745",
+    "eval_white": "#FFFFFF",
+    "eval_black": "#403D39",
+    "eval_advantage": "#81B64C",
 }
 
-# Unicode Satranç Taşları
+# Unicode Satranç Taşları (fallback)
 PIECE_UNICODE = {
     'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
     'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
@@ -145,4 +165,10 @@ PIECE_UNICODE = {
 PIECE_NAMES_TR = {
     'K': 'Şah', 'Q': 'Vezir', 'R': 'Kale', 'B': 'Fil', 'N': 'At', 'P': 'Piyon',
     'k': 'Şah', 'q': 'Vezir', 'r': 'Kale', 'b': 'Fil', 'n': 'At', 'p': 'Piyon'
+}
+
+# Taş Değerleri (materyal hesabı için)
+PIECE_VALUES = {
+    'P': 1, 'N': 3, 'B': 3, 'R': 5, 'Q': 9, 'K': 0,
+    'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0
 }

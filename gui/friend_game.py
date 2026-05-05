@@ -1,5 +1,5 @@
 """
-Arkadaşla Oyna Modu
+Arkadaşla Oyna Modu - Chess.com Tarzı
 Aynı bilgisayarda 2 kişilik oyun
 """
 import customtkinter as ctk
@@ -32,9 +32,13 @@ class FriendGame(GameScreen):
         self.increment_seconds = 0
         self.unlimited = False
         
-        # Timer isimleri güncelle
-        self.player_timer.name_label.configure(text="Beyaz ♔")
-        self.opponent_timer.name_label.configure(text="Siyah ♚")
+        # İsimler
+        self.player_name_label.configure(text="Beyaz ♔")
+        self.opponent_name_label.configure(text="Siyah ♚")
+        
+        # Captured pieces renkleri
+        self.player_captured.color = chess.WHITE
+        self.opponent_captured.color = chess.BLACK
         
         # Ayarlar diyaloğunu göster
         self.after(100, self._show_settings)
@@ -65,20 +69,19 @@ class FriendGame(GameScreen):
         # Timer ayarları
         initial_time = self.time_minutes * 60 if not self.unlimited else 0
         
-        # Beyaz timer (player_timer olarak kullanıyoruz)
         self.player_timer.reset(initial_time)
         self.player_timer.increment = self.increment_seconds
         self.player_timer.set_unlimited(self.unlimited)
-        self.player_timer.name_label.configure(text="Beyaz ♔")
         
-        # Siyah timer
         self.opponent_timer.reset(initial_time)
         self.opponent_timer.increment = self.increment_seconds
         self.opponent_timer.set_unlimited(self.unlimited)
-        self.opponent_timer.name_label.configure(text="Siyah ♚")
         
         # Hamle listesi temizle
         self.move_list.clear()
+        
+        # Eval bar sıfırla
+        self.eval_bar.set_eval(0)
         
         # Stockfish başlat (ipucu için)
         self.stockfish.start()
@@ -86,6 +89,9 @@ class FriendGame(GameScreen):
         # Oyun aktif
         self.game_active = True
         self._update_turn_display()
+        
+        # Alınan taşları sıfırla
+        self.update_captured_pieces()
         
         # Beyaz başlar
         if not self.unlimited:
@@ -111,6 +117,10 @@ class FriendGame(GameScreen):
         
         # Hamle listesine ekle
         self.move_list.add_move(san)
+        
+        # Alınan taşları güncelle
+        self.update_captured_pieces()
+        self._update_eval_bar()
         
         # Timer değiştir
         if not self.unlimited:
@@ -162,30 +172,29 @@ class FriendGame(GameScreen):
         if result:
             move, score = result
             self.chess_board.show_hint(move)
-            
-            # 3 saniye sonra ipucunu kaldır
             self.after(3000, self.chess_board.clear_hint)
     
     def _on_undo_click(self):
-        """Hamle geri al - Arkadaşla oynarken 1 hamle geri al"""
+        """Hamle geri al"""
         if not self.game_active:
             return
         
         if not self.engine.move_history:
             return
         
-        # Son hamleyi geri al
         self.engine.undo_move()
         self.move_list.remove_last_move()
         
-        # Tahtayı güncelle
         self.chess_board.set_board(self.engine.board)
         if self.engine.move_history:
             self.chess_board.set_last_move(self.engine.move_history[-1])
         else:
             self.chess_board.set_last_move(None)
         
-        # Sıra göstergesini güncelle
+        # Alınan taşları güncelle
+        self.update_captured_pieces()
+        self._update_eval_bar()
+        
         self._update_turn_display()
     
     def _on_resign_click(self):
@@ -193,17 +202,15 @@ class FriendGame(GameScreen):
         if not self.game_active:
             return
         
-        # Sırası olan oyuncu terk eder
         self.engine.resign(self.engine.board.turn)
         self._handle_game_over()
     
     def _on_copy_click(self):
-        """Hamleleri kopyala (Chess.com uyumlu)"""
+        """Hamleleri kopyala"""
         pgn = self.engine.get_pgn()
         self.clipboard_clear()
         self.clipboard_append(pgn)
         
-        # Geri bildirim
         self.copy_btn.configure(text="✓ Kopyalandı!")
         self.after(1500, lambda: self.copy_btn.configure(text="📋 Hamleleri Kopyala"))
     
@@ -212,10 +219,9 @@ class FriendGame(GameScreen):
         if not self.game_active:
             return
         
-        # Hangi tarafın süresi doldu?
-        if who == "player":  # Beyaz
+        if who == "player":
             self.engine.resign(chess.WHITE)
-        else:  # Siyah
+        else:
             self.engine.resign(chess.BLACK)
         
         self._handle_game_over()
@@ -227,7 +233,6 @@ class FriendGame(GameScreen):
         self.player_timer.stop()
         self.opponent_timer.stop()
         
-        # Sonuç belirleme
         result = self.engine.result
         
         if result == "1-0":
@@ -237,7 +242,6 @@ class FriendGame(GameScreen):
         else:
             result_text = "Berabere 🤝"
         
-        # Sebep
         if self.engine.board.is_checkmate():
             reason = "Şah mat!"
         elif self.engine.board.is_stalemate():
@@ -251,7 +255,18 @@ class FriendGame(GameScreen):
         else:
             reason = "Oyun terk edildi"
         
-        # Diyalog göster
+        # Maç geçmişine kaydet
+        from game_history import GameHistory
+        history = GameHistory.get_instance()
+        history.add_game(
+            white_name=self.engine.white_player,
+            black_name=self.engine.black_player,
+            result=self.engine.result or "*",
+            move_count=len(self.engine.move_history),
+            pgn=self.engine.get_pgn(),
+            mode="friend"
+        )
+        
         GameEndDialog(
             self,
             result=result_text,

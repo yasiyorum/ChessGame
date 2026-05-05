@@ -60,13 +60,13 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Stockfish binary (too large for git, users should download separately)
-stockfish/*.exe
-
 # Build outputs
 *.exe
-logo.ico
-create_ico.py
+!stockfish/*.exe
+
+# User Data
+game_history.json
+settings.json
 
 # Logs
 *.log

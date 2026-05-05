@@ -1,0 +1,21 @@
+{
+  "name": "Varsayılan",
+  "author": "Chess App",
+  "board": {
+    "light_color": "#EEEED2",
+    "dark_color": "#769656",
+    "highlight_color": "#BACA44",
+    "selected_color": "#F6F669",
+    "last_move_light": "#F6F680",
+    "last_move_dark": "#BACA44",
+    "check_color": "#E84545",
+    "hint_color": "#5DAD5D",
+    "coordinates_color": "#B0B0B0",
+    "move_dot_color": "rgba(0,0,0,0.2)",
+    "capture_ring_color": "rgba(0,0,0,0.2)"
+  },
+  "pieces": {
+    "style": "image",
+    "directory": "pieces"
+  }
+}
