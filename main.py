@@ -15,6 +15,59 @@ from gui.main_menu import MainMenu
 from gui.bot_game import BotGame
 from gui.friend_game import FriendGame
 from gui.analysis_screen import AnalysisScreen
+from gui.board_editor import BoardEditorScreen
+
+
+class SplashScreen(ctk.CTkFrame):
+    """Açılış ekranı - Paket yükleme durumu için"""
+    def __init__(self, parent, on_complete):
+        super().__init__(parent, fg_color=THEME["bg_primary"])
+        self.on_complete = on_complete
+        
+        # İçerik
+        self.label = ctk.CTkLabel(self, text="Satranç Pro", font=ctk.CTkFont(size=40, weight="bold"))
+        self.label.pack(pady=(WINDOW_HEIGHT//3, 20))
+        
+        self.status_label = ctk.CTkLabel(self, text="Başlatılıyor...", font=ctk.CTkFont(size=14), text_color=THEME["text_secondary"])
+        self.status_label.pack(pady=10)
+        
+        self.progress = ctk.CTkProgressBar(self, width=400, progress_color=THEME["accent"])
+        self.progress.pack(pady=20)
+        self.progress.set(0)
+        
+        self.start_sync()
+
+    def start_sync(self):
+        import threading
+        import time
+        from utils import sync_from_github
+        
+        def run():
+            try:
+                # 1. Temalar
+                self.update_status("Gerekli paketler yükleniyor (Temalar)...", 0.3)
+                sync_from_github("themes")
+                
+                # 2. Stockfish
+                self.update_status("Gerekli paketler yükleniyor (Stockfish)...", 0.7)
+                sync_from_github("stockfish")
+                
+                # 3. Tamamla
+                self.update_status("Sistem hazır, başlatılıyor...", 1.0)
+                time.sleep(0.8)
+                self.after(0, self.on_complete)
+            except Exception as e:
+                print(f"Splash sync error: {e}")
+                self.after(0, self.on_complete)
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def update_status(self, text, val):
+        self.after(0, lambda: self._update_ui(text, val))
+
+    def _update_ui(self, text, val):
+        self.status_label.configure(text=text)
+        self.progress.set(val)
 
 
 class ChessApp(ctk.CTk):
@@ -22,9 +75,6 @@ class ChessApp(ctk.CTk):
     
     def __init__(self):
         super().__init__()
-        
-        # Tema yöneticisini başlat
-        self.theme_manager = ThemeManager.get_instance()
         
         # Pencere ayarları
         self.title(f"{APP_NAME} v{APP_VERSION}")
@@ -49,12 +99,24 @@ class ChessApp(ctk.CTk):
         # Mevcut ekran
         self.current_screen = None
         
-        # Ana menüyü göster
-        self.show_main_menu()
+        # Açılış ekranını göster
+        self.show_splash()
         
         # Pencere kapatma eventi
         self.protocol("WM_DELETE_WINDOW", self._on_close)
     
+    def show_splash(self):
+        """Açılış ekranını göster"""
+        self._clear_screen()
+        self.current_screen = SplashScreen(self, on_complete=self.on_splash_complete)
+        self.current_screen.pack(fill="both", expand=True)
+
+    def on_splash_complete(self):
+        """Yükleme tamamlandığında ana menüye geç"""
+        # Tema yöneticisini şimdi başlat (senkronizasyon bittiği için hızlı olacak)
+        self.theme_manager = ThemeManager.get_instance()
+        self.show_main_menu()
+
     def show_main_menu(self):
         """Ana menüyü göster"""
         self._clear_screen()
@@ -63,7 +125,8 @@ class ChessApp(ctk.CTk):
             self,
             on_bot_game=self.show_bot_game,
             on_friend_game=self.show_friend_game,
-            on_analysis=self.show_analysis
+            on_analysis=self.show_analysis,
+            on_board_editor=self.show_board_editor
         )
         self.current_screen.pack(fill="both", expand=True)
     
@@ -87,14 +150,26 @@ class ChessApp(ctk.CTk):
         )
         self.current_screen.pack(fill="both", expand=True)
     
-    def show_analysis(self, pgn=None):
+    def show_analysis(self, pgn=None, fen=None):
         """Analiz ekranını göster"""
         self._clear_screen()
         
         self.current_screen = AnalysisScreen(
             self,
             on_back=self.show_main_menu,
-            initial_pgn=pgn
+            initial_pgn=pgn,
+            initial_fen=fen
+        )
+        self.current_screen.pack(fill="both", expand=True)
+        
+    def show_board_editor(self):
+        """Tahta düzenleyici ekranını göster"""
+        self._clear_screen()
+        
+        self.current_screen = BoardEditorScreen(
+            self,
+            on_back=self.show_main_menu,
+            on_analyze=lambda fen: self.show_analysis(fen=fen)
         )
         self.current_screen.pack(fill="both", expand=True)
     

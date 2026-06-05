@@ -27,9 +27,10 @@ MIN_WINDOW_HEIGHT = 750
 
 # Stockfish Ayarları
 import utils
-stockfish_dir = utils.sync_from_github("stockfish")
+# sync_from_github artık main.py içinde splash screen ile yapılıyor
 STOCKFISH_PATH = os.path.join(
-    stockfish_dir, 
+    utils.get_appdata_dir(), 
+    "stockfish",
     "stockfish-windows-x86-64-avx2.exe"
 )
 

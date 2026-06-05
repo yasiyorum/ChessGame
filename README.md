@@ -10,6 +10,7 @@ Modern, Chess.com tarzı, profesyonel analiz özelliklerine sahip masaüstü sat
 
 ### 🤖 Botla Oyna (Professional Engine)
 - **Hassas ELO Ayarı**: 100 ile 3200 ELO arası her seviyede rakip.
+- **Gerçekçi ELO Simülasyonu**: 4 katmanlı zayıflatma sistemi — 100 ELO gerçekten acemi gibi oynar.
 - **Dinamik Süre Kontrolü**: Bullet, Blitz ve Rapid formatları (1, 3, 5, 10, 30, 60 dk).
 - **Artırmalı Süre (Increment)**: Hamle başına ek süre desteği.
 - **Görsel İpucu Sistemi**: En iyi hamleleri tahta üzerinde yeşil oklar ile görme.
@@ -42,6 +43,60 @@ Modern, Chess.com tarzı, profesyonel analiz özelliklerine sahip masaüstü sat
 | **Mistake** | ? | 🟠 Turuncu | Avantajı ciddi şekilde kaybettiren hata |
 | **Blunder** | ?? | 🔴 Kırmızı | Oyunu kaybettirebilecek vahim hata |
 | **Miss** | X | 🔴 Parlak Kırmızı | Galibiyeti veya büyük avantajı kaçıran hamle |
+
+## ✏️ Tahta Üzerinde Çizim (Chess.com Tarzı)
+
+Sağ tık basılı tutarak tahta üzerinde ok ve kare vurguları çizebilirsiniz.
+
+| Eylem | Sonuç |
+|-------|-------|
+| **Sağ tık + sürükle** | İki kare arasında ok çizer |
+| **Sağ tık** (tek kare) | Kareyi renkli vurgular |
+| **Sol tık** | Tüm çizimleri temizler |
+
+### Renk Kısayolları
+
+| Tuş Kombinasyonu | Renk |
+|-------------------|------|
+| Sağ tık | 🟢 Yeşil |
+| **Ctrl** + Sağ tık | 🔴 Kırmızı |
+| **Alt** + Sağ tık | 🔵 Mavi |
+| **Shift** + Sağ tık | 🟡 Sarı |
+
+> Oklar ve vurgular hamle yapılana kadar kalıcıdır. Aynı oku tekrar çizerseniz silinir (toggle).
+
+## 🧠 ELO Simülasyon Sistemi
+
+Stockfish'in varsayılan zayıflatması düşük ELO'larda yetersiz kaldığı için **100–1200 arası** her ELO dilimi için özel bir simülasyon sistemi geliştirilmiştir. 1200 üstü Stockfish'in kendi `UCI_Elo` mekanizmasını kullanır.
+
+### Genel Davranış
+
+| ELO Aralığı | Davranış |
+|-------------|----------|
+| **100–200** | Çok kötü, neredeyse her hamle hata ama bir mantığı var |
+| **200–400** | Sık blunder, temel taktikleri göremez |
+| **400–600** | Arada iyi hamle yapar ama taktik göremez |
+| **600–800** | Çoğunlukla makul hamle, ama önemli anlarda taktik kaçırır |
+| **800–1200** | İyi oynar ama hassas pozisyonlarda hata yapar |
+| **1200–3200** | Stockfish'in kendi Skill Level ve UCI_Elo mekanizması |
+
+### Detaylı Parametreler
+
+Her hamle için 3 parametre kontrol edilir:
+
+| ELO | Blunder Şansı | En İyi Hamle Şansı | Kabul Edilebilir Kayıp | Analiz Derinliği |
+|-----|--------------|--------------------|-----------------------|-----------------|
+| 100 | %45 | %5 | 300cp (3 piyon) | 3 |
+| 200 | %35 | %10 | 300cp | 3 |
+| 300 | %25 | %10 | 200cp | 5 |
+| 400 | %18 | %15 | 200cp | 5 |
+| 500 | %13 | %20 | 120cp | 7 |
+| 600 | %10 | %25 | 120cp | 7 |
+| 700 | %8 | %30 | 80cp | 9 |
+| 800 | %6 | %35 | 80cp | 9 |
+| 900 | %4 | %42 | 50cp | 11 |
+| 1000 | %3 | %50 | 50cp | 11 |
+| 1100 | %2 | %55 | 30cp | 13 |
 
 ## 📦 Kurulum ve Çalıştırma
 

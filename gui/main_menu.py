@@ -18,12 +18,14 @@ class MainMenu(ctk.CTkFrame):
                  on_bot_game: Optional[Callable] = None,
                  on_friend_game: Optional[Callable] = None,
                  on_analysis: Optional[Callable] = None,
+                 on_board_editor: Optional[Callable] = None,
                  **kwargs):
         super().__init__(parent, **kwargs)
         
         self.on_bot_game = on_bot_game
         self.on_friend_game = on_friend_game
         self.on_analysis = on_analysis
+        self.on_board_editor = on_board_editor
         
         self.configure(fg_color=THEME["bg_primary"])
         
@@ -157,6 +159,16 @@ class MainMenu(ctk.CTkFrame):
             accent_color="#E6912C",
             command=self._on_analysis_click
         ).pack(fill="x", pady=8)
+        
+        # Pozisyon Kurma (Board Editor) kartı
+        self._create_game_card(
+            cards_frame,
+            icon="✏️",
+            title="Tahta Düzenleyici",
+            subtitle="Özel pozisyon kur ve analiz et",
+            accent_color="#9C59B6",
+            command=self._on_board_editor_click
+        ).pack(fill="x", pady=8)
     
     def _create_game_card(self, parent, icon: str, title: str, 
                           subtitle: str, accent_color: str, command: Callable) -> ctk.CTkFrame:
@@ -265,3 +277,7 @@ class MainMenu(ctk.CTkFrame):
     def _on_analysis_click(self):
         if self.on_analysis:
             self.on_analysis()
+
+    def _on_board_editor_click(self):
+        if self.on_board_editor:
+            self.on_board_editor()

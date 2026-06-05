@@ -20,7 +20,7 @@ from engine.stockfish_manager import StockfishManager
 class AnalysisScreen(ctk.CTkFrame):
     """Chess.com tarzı analiz ekranı"""
     
-    def __init__(self, parent, on_back: Optional[Callable] = None, initial_pgn: Optional[str] = None, **kwargs):
+    def __init__(self, parent, on_back: Optional[Callable] = None, initial_pgn: Optional[str] = None, initial_fen: Optional[str] = None, **kwargs):
         super().__init__(parent, **kwargs)
         
         self.on_back = on_back
@@ -43,6 +43,12 @@ class AnalysisScreen(ctk.CTkFrame):
         if initial_pgn:
             self.pgn_input.insert("1.0", initial_pgn)
             self.after(100, self._start_analysis)
+        elif initial_fen:
+            self.engine.set_fen(initial_fen)
+            self.chess_board.set_board(self.engine.board)
+            self.status_label.configure(text="Özel Pozisyon (Serbest Analiz)")
+            self.is_custom_line = True
+            self.after(100, self._update_top_moves)
     
     def _setup_ui(self):
         """UI oluştur"""

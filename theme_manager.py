@@ -40,15 +40,12 @@ class ThemeManager:
             "friend_allow_undo": True
         }
         
-        # AppData'ya senkronize et (GitHub'dan veya lokalden)
-        self.appdata_themes = sync_from_github("themes")
-        
         # Ayarları yükle (tema klasörü yolu)
         self._load_settings()
         
         # Eğer özel klasör seçilmemişse AppData'daki klasörü kullan
         if not self._custom_themes_dir:
-            self._custom_themes_dir = self.appdata_themes
+            self._custom_themes_dir = os.path.join(get_appdata_dir(), "themes")
             
         # Varsayılan temayı yükle
         self.load_theme(self.current_theme_name)

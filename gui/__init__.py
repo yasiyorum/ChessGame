@@ -7,8 +7,10 @@ from .game_screen import GameScreen
 from .bot_game import BotGame
 from .friend_game import FriendGame
 from .analysis_screen import AnalysisScreen
+from .board_editor import BoardEditorScreen
 
 __all__ = [
     'MainMenu', 'ChessBoard', 'GameScreen',
-    'BotGame', 'FriendGame', 'AnalysisScreen'
+    'BotGame', 'FriendGame', 'AnalysisScreen',
+    'BoardEditorScreen'
 ]

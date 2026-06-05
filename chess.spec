@@ -16,9 +16,8 @@ a = Analysis(
     pathex=[project_dir],
     binaries=[],
     datas=[
-        # Stockfish motorunu dahil et
         ('stockfish/stockfish-windows-x86-64-avx2.exe', 'stockfish'),
-        # Logo
+        ('themes', 'themes'),
         ('logo.ico', '.'),
     ],
     hiddenimports=[
@@ -28,6 +27,7 @@ a = Analysis(
         'customtkinter',
         'PIL',
         'PIL.Image',
+        'requests',
     ],
     hookspath=[],
     hooksconfig={},
